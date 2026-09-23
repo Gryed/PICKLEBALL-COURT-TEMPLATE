@@ -1,0 +1,336 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap');
+@import "tailwindcss";
+
+/* =========================================================
+   ALEX XAMIE PICKLEBALL ZONE — GLOBAL DESIGN SYSTEM
+   Electric Lime × Deep Navy × Court Blue
+   ========================================================= */
+
+@theme {
+  /* =======================================================
+     BRAND
+     ======================================================= */
+
+  --color-court: #A3DB38;
+  --color-court-dark: #8DC63F;
+  --color-court-accent: #4B8EC7;
+
+  /* =======================================================
+     BACKGROUNDS
+     ======================================================= */
+
+  --color-paper: #0D1B36;
+  --color-surface: #1A3561;
+  --color-surface-elevated: #2F69A3;
+
+  /* =======================================================
+     TEXT
+     ======================================================= */
+
+  --color-ink: #FFFFFF;
+  --color-muted: #B8C7DC;
+
+  /* =======================================================
+     BORDERS
+     ======================================================= */
+
+  --color-line: #315789;
+
+  /* =======================================================
+     SEMANTIC COLORS
+     ======================================================= */
+
+  --color-success: #A3DB38;
+  --color-warning: #FACC15;
+  --color-danger: #F87171;
+  --color-info: #4B8EC7;
+
+  /* =======================================================
+     TYPOGRAPHY
+     ======================================================= */
+
+  --font-display: "Space Grotesk", sans-serif;
+  --font-body: "Inter", sans-serif;
+
+  /* =======================================================
+     DESIGN
+     ======================================================= */
+
+  --radius-card: 1rem;
+  --radius-card-lg: 1.25rem;
+}
+
+/* =========================================================
+   BASE
+   ========================================================= */
+
+html {
+  background: var(--color-paper);
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+
+  background:
+    radial-gradient(
+      circle at top right,
+      rgba(163, 219, 56, 0.08),
+      transparent 30rem
+    ),
+    radial-gradient(
+      circle at bottom left,
+      rgba(75, 142, 199, 0.08),
+      transparent 28rem
+    ),
+    var(--color-paper);
+
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+.font-display {
+  font-family: var(--font-display);
+}
+
+button,
+input,
+textarea,
+select {
+  font-family: inherit;
+}
+
+/* =========================================================
+   SELECTION
+   ========================================================= */
+
+::selection {
+  background: var(--color-court);
+  color: var(--color-paper);
+}
+
+/* =========================================================
+   SCROLLBAR
+   ========================================================= */
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-paper);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-line);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-court-dark);
+}
+
+/* =========================================================
+   PREMIUM BUTTONS
+   ========================================================= */
+
+.btn-court {
+  background: linear-gradient(
+    135deg,
+    var(--color-court) 0%,
+    var(--color-court-dark) 100%
+  );
+
+  color: #111111;
+
+  border: 1px solid rgba(163, 219, 56, 0.45);
+
+  box-shadow:
+    0 8px 24px rgba(163, 219, 56, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    filter 160ms ease;
+}
+
+.btn-court:hover {
+  background: linear-gradient(
+    135deg,
+    #8DC63F 0%,
+    #A3DB38 100%
+  );
+
+  box-shadow:
+    0 12px 30px rgba(163, 219, 56, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+
+  transform: translateY(-1px);
+}
+
+.btn-court:active {
+  transform: translateY(0);
+}
+
+/* =========================================================
+   SHARED PICKLERESERVE COMPONENTS
+   ========================================================= */
+
+.pr-page {
+  min-height: 100vh;
+  background: var(--color-paper);
+  color: var(--color-ink);
+}
+
+.pr-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-card);
+
+  box-shadow:
+    0 10px 30px rgba(0, 0, 0, 0.22);
+}
+
+.pr-card-elevated {
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-card-lg);
+
+  box-shadow:
+    0 16px 40px rgba(0, 0, 0, 0.28);
+}
+
+/* =========================================================
+   INPUTS
+   ========================================================= */
+
+.pr-input {
+  width: 100%;
+
+  background: var(--color-surface);
+  color: var(--color-ink);
+
+  border: 1px solid var(--color-line);
+  border-radius: 0.75rem;
+
+  outline: none;
+
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    background-color 160ms ease;
+}
+
+.pr-input::placeholder {
+  color: var(--color-muted);
+}
+
+.pr-input:focus {
+  border-color: var(--color-court);
+
+  box-shadow:
+    0 0 0 3px rgba(163, 219, 56, 0.12);
+}
+
+/* =========================================================
+   BADGES
+   ========================================================= */
+
+.pr-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+
+  border: 1px solid var(--color-line);
+  border-radius: 999px;
+
+  padding: 0.3rem 0.65rem;
+
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+/* =========================================================
+   LINKS
+   ========================================================= */
+
+.pr-link {
+  color: var(--color-muted);
+  transition: color 160ms ease;
+}
+
+.pr-link:hover {
+  color: var(--color-court);
+}
+
+/* =========================================================
+   PREMIUM GLOW
+   ========================================================= */
+
+.pr-glow {
+  position: relative;
+}
+
+.pr-glow::before {
+  content: "";
+
+  position: absolute;
+  inset: -1px;
+
+  border-radius: inherit;
+
+  background: linear-gradient(
+    135deg,
+    rgba(163, 219, 56, 0.16),
+    rgba(75, 142, 199, 0.08) 45%,
+    transparent 70%
+  );
+
+  pointer-events: none;
+  z-index: 0;
+}
+
+.pr-glow > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* =========================================================
+   SUBTLE DIVIDER
+   ========================================================= */
+
+.pr-divider {
+  height: 1px;
+  width: 100%;
+  background: var(--color-line);
+}
+
+/* =========================================================
+   FOCUS ACCESSIBILITY
+   ========================================================= */
+
+:focus-visible {
+  outline: 2px solid var(--color-court);
+  outline-offset: 2px;
+}
+
+/* =========================================================
+   MOBILE TAP EXPERIENCE
+   ========================================================= */
+
+@media (max-width: 640px) {
+  button,
+  a {
+    -webkit-tap-highlight-color: transparent;
+  }
+}

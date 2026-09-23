@@ -1,0 +1,2854 @@
+import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import type { Court, Settings } from '../types/court'
+import type { TimeSlot } from '../types/availability'
+
+import {
+  getPublicCourts,
+  getPublicBookingSettings,
+} from '../services/courtService'
+
+import {
+  getPublicOrganizations,
+  getAvailableSlots,
+  generateBookingReference,
+} from '../services/availabilityService'
+
+import { createBookingAtomic } from '../services/atomicBookingService'
+import { uploadPaymentProof } from '../services/paymentService'
+import { useAuth } from '../context/AuthContext'
+
+const BOOKING_RULES = [
+  'Payment is required to confirm your booking.',
+  'Bookings are non-refundable. If the court is unplayable due to weather or maintenance, contact us to reschedule.',
+  'Need to reschedule? Please contact us through Messenger with your booking reference. Reschedule requests are handled by an admin, are subject to availability and the 24-hour reschedule policy, and are not confirmed until an admin replies.',
+  'Please arrive on time. Bookings may be released without refund if more than 30 minutes late.',
+  'Play only during your reserved time and vacate the court promptly after your session.',
+]
+
+function toISODate(d: Date) {
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+
+  return `${year}-${month}-${day}`
+}
+
+function addDays(date: Date, days: number) {
+  const result = new Date(date)
+  result.setDate(result.getDate() + days)
+
+  return result
+}
+
+function formatWeekday(date: Date) {
+  return date.toLocaleDateString('en-US', {
+    weekday: 'short',
+  })
+}
+
+function formatMonth(date: Date) {
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
+  })
+}
+
+function formatTime(time: string) {
+  const [h, m] = time.split(':').map(Number)
+
+  const period = h >= 12 ? 'PM' : 'AM'
+  const hour12 = h % 12 === 0 ? 12 : h % 12
+
+  return `${hour12}:${String(m).padStart(2, '0')} ${period}`
+}
+
+function formatDateLong(iso: string) {
+  const d = new Date(iso + 'T00:00:00')
+
+  return d.toLocaleDateString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  })
+}
+
+function isWeekendDate(iso: string) {
+  const [year, month, day] = iso.split('-').map(Number)
+  const localDate = new Date(year, month - 1, day)
+  const dayOfWeek = localDate.getDay()
+
+  return dayOfWeek === 0 || dayOfWeek === 6
+}
+
+interface SlotGroup {
+  start: string
+  end: string
+  hours: number
+  isSeparate: boolean
+}
+
+function groupConsecutiveSlots(slots: TimeSlot[]): SlotGroup[] {
+  if (slots.length === 0) return []
+
+  const sorted = [...slots].sort((a, b) =>
+    a.start_time.localeCompare(b.start_time)
+  )
+
+  const groups: SlotGroup[] = []
+  let currentGroup: TimeSlot[] = [sorted[0]]
+
+  for (let i = 1; i < sorted.length; i++) {
+    const previous = currentGroup[currentGroup.length - 1]
+
+    if (sorted[i].start_time === previous.end_time) {
+      currentGroup.push(sorted[i])
+    } else {
+      groups.push({
+        start: currentGroup[0].start_time,
+        end: currentGroup[currentGroup.length - 1].end_time,
+        hours: currentGroup.length,
+        isSeparate: false,
+      })
+
+      currentGroup = [sorted[i]]
+    }
+  }
+
+  groups.push({
+    start: currentGroup[0].start_time,
+    end: currentGroup[currentGroup.length - 1].end_time,
+    hours: currentGroup.length,
+    isSeparate: false,
+  })
+
+  if (groups.length > 1) {
+    groups.forEach((group) => {
+      group.isSeparate = true
+    })
+  }
+
+  return groups
+}
+
+type BookingDuration = '1' | '6' | 'full'
+
+type ModalStep =
+  | 'none'
+  | 'rules'
+  | 'payment'
+  | 'success'
+
+function getSlotIndex(
+  slots: TimeSlot[],
+  startTime: string
+) {
+  return slots.findIndex(
+    (slot) =>
+      slot.start_time === startTime
+  )
+}
+
+function getConsecutiveAvailableSlots(
+  slots: TimeSlot[],
+  startIndex: number,
+  requiredHours: number
+): TimeSlot[] {
+  if (
+    startIndex < 0 ||
+    requiredHours <= 0
+  ) {
+    return []
+  }
+
+  const result: TimeSlot[] = []
+
+  for (
+    let index = startIndex;
+    index < slots.length &&
+    result.length < requiredHours;
+    index++
+  ) {
+    const slot = slots[index]
+
+    if (!slot.available) {
+      return []
+    }
+
+    if (
+      result.length > 0 &&
+      result[result.length - 1].end_time !==
+        slot.start_time
+    ) {
+      return []
+    }
+
+    result.push(slot)
+  }
+
+  if (
+    result.length !== requiredHours
+  ) {
+    return []
+  }
+
+  return result
+}
+
+export default function Booking() {
+  const navigate = useNavigate()
+  const { user } = useAuth()
+
+  const [organizationSlug, setOrganizationSlug] = useState('')
+
+  const [courts, setCourts] = useState<Court[]>([])
+  const [court, setCourt] = useState<Court | null>(null)
+  const [selectedCourtId, setSelectedCourtId] = useState('')
+
+
+  const [settings, setSettings] =
+    useState<Settings | null>(null)
+
+  const [date, setDate] = useState(() =>
+    toISODate(new Date())
+  )
+
+  const [dateWindowStart, setDateWindowStart] =
+    useState(() => new Date())
+
+  const [slots, setSlots] = useState<TimeSlot[]>([])
+
+  const [selectedSlots, setSelectedSlots] =
+    useState<TimeSlot[]>([])
+
+  const [bookingDuration, setBookingDuration] =
+    useState<BookingDuration | null>(null)
+
+  const [slotFilter, setSlotFilter] = useState<
+  'all' | 'available' | 'pending' | 'booked'
+>('all')
+
+  const [paymentType] =
+    useState<'full' | 'deposit'>('full')
+
+  const [proofFile, setProofFile] =
+    useState<File | null>(null)
+
+  const [agreedToRules, setAgreedToRules] =
+    useState(false)
+
+  const [bookAsGuest, setBookAsGuest] =
+    useState(!user)
+
+  const [guestName, setGuestName] = useState('')
+  const [guestPhone, setGuestPhone] = useState('')
+
+  const [customerDetailsOpen, setCustomerDetailsOpen] =
+    useState(false)
+
+  const [customerAlertOpen, setCustomerAlertOpen] =
+    useState(false)
+
+  const [copied, setCopied] = useState(false)
+
+  const [loadingCourts, setLoadingCourts] =
+    useState(false)
+
+  const [loadingSlots, setLoadingSlots] =
+    useState(false)
+
+  const [submitting, setSubmitting] =
+    useState(false)
+
+  const [error, setError] = useState('')
+
+  const [modalStep, setModalStep] =
+    useState<ModalStep>('none')
+
+  const [bookingReference, setBookingReference] =
+    useState('')
+
+  const bookingHorizon =
+    settings?.booking_horizon_days ?? 60
+
+  const dateWindow = Array.from(
+    { length: 7 },
+    (_, index) =>
+      addDays(dateWindowStart, index)
+  )
+
+  const mobileDateWindow =
+    dateWindow.slice(0, 5)
+
+  const todayISO = toISODate(new Date())
+
+  const maxBookingDate = addDays(
+    new Date(),
+    Math.max(0, bookingHorizon - 1)
+  )
+
+  const canGoPrevious =
+    toISODate(dateWindowStart) > todayISO
+
+  const canGoNext =
+    toISODate(addDays(dateWindowStart, 7)) <=
+    toISODate(maxBookingDate)
+
+  const isWeekend = isWeekendDate(date)
+
+  const bookingHourlyRate =
+    court?.weekend_pricing_enabled &&
+    isWeekend
+      ? court.weekend_price_per_hour ??
+        court.price_per_hour
+      : court?.price_per_hour ?? 0
+
+  const weekendRateActive =
+    Boolean(
+      court?.weekend_pricing_enabled &&
+        isWeekend &&
+        court.weekend_price_per_hour !== null
+    )
+
+  useEffect(() => {
+    void getPublicOrganizations()
+      .then((rows) => {
+
+        if (rows.length === 1) {
+          setOrganizationSlug(rows[0].slug)
+        }
+      })
+      .catch((err) => {
+        setError(
+          err instanceof Error
+            ? err.message
+            : 'Failed to load organizations'
+        )
+      })
+  }, [])
+
+  useEffect(() => {
+    if (!organizationSlug) {
+      setCourts([])
+      setCourt(null)
+      setSelectedCourtId('')
+      setSettings(null)
+      setSlots([])
+      return
+    }
+
+    void loadCourtAndSettings()
+  }, [organizationSlug])
+
+  useEffect(() => {
+    if (
+      !selectedCourtId ||
+      courts.length === 0
+    ) {
+      return
+    }
+
+    const selected = courts.find(
+      (item) =>
+        item.id === selectedCourtId
+    )
+
+    if (!selected) {
+      return
+    }
+
+    setCourt(selected)
+
+    if (selected.status !== 'available') {
+      setSlots([])
+      setSelectedSlots([])
+      setBookingDuration(null)
+      setLoadingSlots(false)
+
+      return
+    }
+
+    loadSlots(
+      selectedCourtId,
+      date
+    )
+  }, [selectedCourtId, date])
+
+  async function loadCourtAndSettings() {
+    try {
+      setLoadingCourts(true)
+      setError('')
+
+      if (!organizationSlug) {
+        return
+      }
+
+      const courtList = await getPublicCourts(
+        organizationSlug
+      )
+
+      const firstAvailableCourt = courtList.find(
+        (item) => item.status === 'available'
+      )
+
+      const settingsData = firstAvailableCourt
+        ? await getPublicBookingSettings(firstAvailableCourt.id)
+        : null
+
+      setCourts(courtList)
+      if (settingsData) {
+        setSettings(settingsData)
+      }
+
+      if (firstAvailableCourt) {
+        setSelectedCourtId(
+          firstAvailableCourt.id
+        )
+
+        setCourt(firstAvailableCourt)
+      } else {
+        setSelectedCourtId('')
+        setCourt(null)
+        setSlots([])
+      }
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Failed to load booking information'
+      )
+    } finally {
+      setLoadingCourts(false)
+    }
+  }
+
+  async function loadSlots(
+    courtId: string,
+    bookingDate: string
+  ) {
+    if (!courtId || !bookingDate) {
+      return
+    }
+
+    setLoadingSlots(true)
+    setSelectedSlots([])
+    setBookingDuration(null)
+    setSlotFilter('all')
+    setAgreedToRules(false)
+    setCustomerDetailsOpen(false)
+    setError('')
+
+    try {
+      const data =
+        await getAvailableSlots(
+          courtId,
+          bookingDate
+        )
+
+      setSlots(data)
+    } catch (err) {
+      setSlots([])
+
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Failed to load availability'
+      )
+    } finally {
+      setLoadingSlots(false)
+    }
+  }
+
+  function handleCourtChange(
+    courtId: string
+  ) {
+    const selected = courts.find(
+      (item) =>
+        item.id === courtId
+    )
+
+    if (!selected) return
+
+    setSelectedCourtId(courtId)
+    setCourt(selected)
+    void getPublicBookingSettings(courtId).then(setSettings).catch((error) => {
+      setError(error instanceof Error ? error.message : 'Failed to load court settings')
+    })
+    setSelectedSlots([])
+    setBookingDuration(null)
+    setSlotFilter('all')
+    setAgreedToRules(false)
+    setCustomerDetailsOpen(false)
+    setCustomerAlertOpen(false)
+    setModalStep('none')
+    setError('')
+  }
+
+  function toggleSlot(slot: TimeSlot) {
+    if (!slot.available) return
+
+    setError('')
+    setBookingDuration(null)
+
+    setSelectedSlots((previous) => {
+      const exists = previous.find(
+        (selected) =>
+          selected.start_time ===
+          slot.start_time
+      )
+
+      if (exists) {
+        return previous.filter(
+          (selected) =>
+            selected.start_time !==
+            slot.start_time
+        )
+      }
+
+      return [...previous, slot].sort(
+        (a, b) =>
+          a.start_time.localeCompare(
+            b.start_time
+          )
+      )
+    })
+  }
+
+  function selectBookingDuration(
+    duration: BookingDuration
+  ) {
+    if (slots.length === 0) {
+      setError(
+        'No available time slots for this date.'
+      )
+
+      return
+    }
+
+    setError('')
+
+    let startSlot: TimeSlot | undefined
+
+    if (selectedSlots.length > 0) {
+      startSlot = [...selectedSlots]
+        .sort((a, b) =>
+          a.start_time.localeCompare(
+            b.start_time
+          )
+        )[0]
+    } else {
+      startSlot = slots.find(
+        (slot) => slot.available
+      )
+    }
+
+    if (!startSlot) {
+      setError(
+        'No available starting time found.'
+      )
+
+      return
+    }
+
+    const startIndex =
+      getSlotIndex(
+        slots,
+        startSlot.start_time
+      )
+
+    if (startIndex < 0) {
+      setError(
+        'Unable to determine the starting time.'
+      )
+
+      return
+    }
+
+    let requiredHours = 1
+
+    if (duration === '6') {
+      requiredHours = 6
+    }
+
+    if (duration === 'full') {
+      const firstSlotIndex =
+        slots.findIndex(
+          (slot) => slot.available
+        )
+
+      if (firstSlotIndex < 0) {
+        setError(
+          'No available starting time found.'
+        )
+
+        return
+      }
+
+      const firstAvailableSlot =
+        slots[firstSlotIndex]
+
+      if (
+        firstAvailableSlot.start_time !==
+        slots[0]?.start_time
+      ) {
+        setError(
+          'Full day is not available because an earlier time slot is already booked.'
+        )
+
+        return
+      }
+
+      requiredHours = slots.length
+
+      const fullDaySlots =
+        getConsecutiveAvailableSlots(
+          slots,
+          0,
+          requiredHours
+        )
+
+      if (
+        fullDaySlots.length !==
+        requiredHours
+      ) {
+        setError(
+          'Full day is not available because one or more time slots are already booked.'
+        )
+
+        return
+      }
+
+      setSelectedSlots(fullDaySlots)
+      setBookingDuration('full')
+
+      return
+    }
+
+    const selected =
+      getConsecutiveAvailableSlots(
+        slots,
+        startIndex,
+        requiredHours
+      )
+
+    if (
+      selected.length !==
+      requiredHours
+    ) {
+      if (duration === '6') {
+        setError(
+          'A continuous 6-hour period is not available from this starting time.'
+        )
+      } else {
+        setError(
+          'This time slot is no longer available.'
+        )
+      }
+
+      return
+    }
+
+    setSelectedSlots(selected)
+    setBookingDuration(duration)
+  }
+
+  function removeSlot(
+    startTime: string
+  ) {
+    setSelectedSlots((previous) =>
+      previous.filter(
+        (slot) =>
+          slot.start_time !== startTime
+      )
+    )
+
+    setBookingDuration(null)
+    setError('')
+  }
+
+  function getTotalPrice() {
+    return (
+      bookingHourlyRate *
+      selectedSlots.length
+    )
+  }
+
+  function getAmountDue() {
+    const total = getTotalPrice()
+
+    if (paymentType === 'full') {
+      return total
+    }
+
+    const percentage =
+      settings?.deposit_percentage ?? 50
+
+    return Math.round(
+      (total * percentage) / 100
+    )
+  }
+
+  function validateCustomerDetails() {
+    if (bookAsGuest) {
+      if (
+        !guestName.trim() ||
+        !guestPhone.trim()
+      ) {
+        setCustomerAlertOpen(true)
+        return false
+      }
+    } else if (!user) {
+      navigate('/login')
+      return false
+    }
+
+    return true
+  }
+
+  function openRulesModal() {
+    if (!validateCustomerDetails()) {
+      return
+    }
+
+    setError('')
+    setModalStep('rules')
+  }
+
+  function proceedToPayment() {
+    if (!agreedToRules) return
+
+    setError('')
+    setModalStep('payment')
+  }
+
+  async function handleCopyBookingReference() {
+    if (!bookingReference) return
+
+    try {
+      await navigator.clipboard.writeText(
+        bookingReference
+      )
+
+      setCopied(true)
+
+      window.setTimeout(() => {
+        setCopied(false)
+      }, 2000)
+    } catch {
+      setError(
+        'Unable to copy the booking reference.'
+      )
+    }
+  }
+
+  async function handleSubmitBooking() {
+    if (
+      !selectedCourtId ||
+      selectedSlots.length === 0 ||
+      !proofFile
+    ) {
+      return
+    }
+
+    if (!bookAsGuest && !user) {
+      setError(
+        'Please log in before booking with an account.'
+      )
+
+      return
+    }
+
+    setSubmitting(true)
+    setError('')
+
+    try {
+      const amountPerSlot =
+        getAmountDue() /
+        selectedSlots.length
+
+      const idPrefix =
+        crypto.randomUUID()
+
+      const proofUrl =
+        await uploadPaymentProof(
+          proofFile,
+          idPrefix,
+          court?.organization_id ?? ''
+        )
+
+      const reference =
+        await generateBookingReference(selectedCourtId)
+
+      const reservations = selectedSlots.map(
+  (slot) => ({
+    court_id: selectedCourtId,
+
+    user_id: bookAsGuest
+      ? null
+      : user?.id ?? null,
+
+    guest_name: bookAsGuest
+      ? guestName.trim()
+      : null,
+
+    guest_phone: bookAsGuest
+      ? guestPhone.trim()
+      : null,
+
+    date,
+
+    start_time: slot.start_time,
+
+    end_time: slot.end_time,
+
+    payment_type: paymentType,
+
+    amount_due: amountPerSlot,
+
+    payment_proof_url: proofUrl,
+
+    booking_reference: reference,
+  })
+)
+
+await createBookingAtomic(reservations)
+
+      setBookingReference(reference)
+      setCopied(false)
+      setModalStep('success')
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Failed to submit booking'
+      )
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  function closeModals() {
+    setModalStep('none')
+    setProofFile(null)
+    setBookingReference('')
+    setCopied(false)
+    setSelectedSlots([])
+    setBookingDuration(null)
+    setError('')
+
+    if (selectedCourtId) {
+      loadSlots(
+        selectedCourtId,
+        date
+      )
+    }
+  }
+
+  if (loadingCourts) {
+    return (
+      <div className="mx-auto max-w-2xl p-8 text-muted">
+        Loading booking...
+      </div>
+    )
+  }
+
+  if (courts.length === 0) {
+    return (
+      <div className="mx-auto max-w-2xl p-8 text-center">
+        <p className="font-medium text-ink">
+          No courts found
+        </p>
+
+        <p className="mt-1 text-sm text-muted">
+          Please check again later.
+        </p>
+      </div>
+    )
+  }
+
+  if (
+    !court &&
+    courts.some(
+      (item) =>
+        item.status === 'available'
+    )
+  ) {
+    const firstAvailable =
+      courts.find(
+        (item) =>
+          item.status === 'available'
+      )
+
+    if (firstAvailable) {
+      setCourt(firstAvailable)
+      setSelectedCourtId(
+        firstAvailable.id
+      )
+    }
+  }
+
+  const displayedSlots =
+  slotFilter === 'available'
+    ? slots.filter(
+        (slot) =>
+          slot.status === 'available' ||
+          (slot.available && !slot.status)
+      )
+    : slotFilter === 'pending'
+      ? slots.filter(
+          (slot) => slot.status === 'pending'
+        )
+      : slotFilter === 'booked'
+        ? slots.filter(
+            (slot) => slot.status === 'booked'
+          )
+        : slots
+
+const availableCount =
+  slots.filter(
+    (slot) =>
+      slot.status === 'available' ||
+      (slot.available && !slot.status)
+  ).length
+
+const pendingCount =
+  slots.filter(
+    (slot) => slot.status === 'pending'
+  ).length
+
+const bookedCount =
+  slots.filter(
+    (slot) => slot.status === 'booked'
+  ).length
+  const selectedGroups =
+    groupConsecutiveSlots(
+      selectedSlots
+    )
+
+  return (
+    <div className="min-h-full">
+      <div className="mx-auto max-w-7xl px-4 py-6 pb-32 sm:px-6 lg:px-8">
+
+        {/* HEADER */}
+        <div className="mb-6">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-court">
+            Book a court
+          </p>
+
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h1 className="font-display text-3xl font-semibold text-ink">
+                {court?.name ?? 'Select a court'}
+              </h1>
+
+              {court && (
+                <div className="mt-1 flex flex-wrap items-center gap-2">
+                  <p className="text-sm text-muted">
+                    ₱{bookingHourlyRate} / hour
+                  </p>
+
+                  {weekendRateActive && (
+                    <span className="rounded-full bg-court/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-court">
+                      Weekend rate
+                    </span>
+                  )}
+
+                  {court.is_24_hours && (
+                    <span className="rounded-full bg-court/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-court">
+                      24 Hours
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="text-sm text-muted sm:text-right">
+              <p className="font-medium text-ink">
+                {formatDateLong(date)}
+              </p>
+
+              <p>
+                {selectedSlots.length > 0
+                  ? `${selectedSlots.length} hour${
+                      selectedSlots.length > 1
+                        ? 's'
+                        : ''
+                    } selected`
+                  : 'Select your preferred time'}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* COURT SELECTION */}
+        <section className="mb-6 rounded-2xl border border-line bg-surface p-4 sm:p-5">
+          <div className="mb-4">
+            <p className="text-xs font-semibold uppercase tracking-wider text-court">
+              Choose a court
+            </p>
+
+            <h2 className="mt-1 text-lg font-semibold text-ink">
+              Select your preferred court
+            </h2>
+
+            <p className="mt-1 text-sm text-muted">
+              Choose a court before selecting your date and time.
+            </p>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {courts.map((item) => {
+              const isSelected =
+                selectedCourtId === item.id
+
+              const isAvailable =
+                item.status === 'available'
+
+              const isMaintenance =
+                item.status === 'maintenance'
+
+              const isNotAvailable =
+                item.status === 'not_available'
+
+              const itemWeekendRate =
+                item.weekend_pricing_enabled &&
+                isWeekend &&
+                item.weekend_price_per_hour !== null
+                  ? item.weekend_price_per_hour
+                  : item.price_per_hour
+
+              const itemWeekendActive =
+                Boolean(
+                  item.weekend_pricing_enabled &&
+                    isWeekend &&
+                    item.weekend_price_per_hour !== null
+                )
+
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  disabled={!isAvailable}
+                  onClick={() => {
+                    if (!isAvailable) return
+
+                    handleCourtChange(
+                      item.id
+                    )
+                  }}
+                  className={
+                    'rounded-xl border p-4 text-left transition-all ' +
+                    (isAvailable
+                      ? isSelected
+                        ? 'border-court bg-court/10 ring-2 ring-court/20'
+                        : 'border-line bg-paper hover:border-court hover:shadow-sm'
+                      : 'cursor-not-allowed border-line bg-paper/60 opacity-70')
+                  }
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-ink">
+                        {item.name}
+                      </p>
+
+                      <div className="mt-1 flex flex-wrap items-center gap-2">
+                        <p className="text-sm text-muted">
+                          ₱{itemWeekendRate} / hour
+                        </p>
+
+                        {itemWeekendActive && (
+                          <span className="rounded-full bg-court/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-court">
+                            Weekend
+                          </span>
+                        )}
+
+                        {item.is_24_hours && (
+                          <span className="rounded-full bg-court/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-court">
+                            24H
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {isSelected &&
+                      isAvailable && (
+                        <span className="rounded-full bg-court px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-paper">
+                          Selected
+                        </span>
+                      )}
+                  </div>
+
+                  <div className="mt-4">
+                    {isAvailable && (
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-court/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-court">
+                        <span className="h-1.5 w-1.5 rounded-full bg-court" />
+                        Available
+                      </span>
+                    )}
+
+                    {isMaintenance && (
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-400">
+                        <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                        Maintenance
+                      </span>
+                    )}
+
+                    {isNotAvailable && (
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-red-500/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-red-400">
+                        <span className="h-1.5 w-1.5 rounded-full bg-red-400" />
+                        Not Available
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="mt-4 border-t border-line pt-3">
+                    <span
+                      className={
+                        'text-[10px] font-bold uppercase tracking-wider ' +
+                        (isAvailable
+                          ? 'text-court'
+                          : isMaintenance
+                            ? 'text-amber-400'
+                            : 'text-red-400')
+                      }
+                    >
+                      {isAvailable
+                        ? 'Select court'
+                        : isMaintenance
+                          ? 'Under maintenance'
+                          : 'Currently unavailable'}
+                    </span>
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+        </section>
+
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+
+          {/* MAIN */}
+          <main className="min-w-0 space-y-6">
+
+            {/* DATE */}
+            <section className="rounded-2xl border border-line bg-surface p-4 sm:p-5">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-court">
+                    Step 1
+                  </p>
+
+                  <h2 className="mt-1 text-lg font-semibold text-ink">
+                    Select play date
+                  </h2>
+                </div>
+
+                <span className="rounded-full border border-line px-3 py-1 text-xs text-muted">
+                  {bookingHorizon} days
+                </span>
+              </div>
+
+              <div className="relative">
+                <div className="flex items-center gap-2">
+
+                  {/* PREVIOUS */}
+                  <button
+                    type="button"
+                    disabled={!canGoPrevious}
+                    onClick={() =>
+                      setDateWindowStart(
+                        (previous) =>
+                          addDays(
+                            previous,
+                            -7
+                          )
+                      )
+                    }
+                    className="flex h-12 w-9 shrink-0 items-center justify-center rounded-xl border border-line bg-paper text-xl text-muted transition-colors hover:border-court hover:text-ink disabled:cursor-not-allowed disabled:opacity-30 sm:w-10"
+                    aria-label="Previous dates"
+                  >
+                    ‹
+                  </button>
+
+                  {/* MOBILE DATES */}
+                  <div className="grid flex-1 grid-cols-5 gap-1 sm:hidden">
+                    {mobileDateWindow.map(
+                      (d) => {
+                        const iso =
+                          toISODate(d)
+
+                        const isSelected =
+                          iso === date
+
+                        const isPast =
+                          iso < todayISO
+
+                        const isBeyondHorizon =
+                          iso >
+                          toISODate(
+                            maxBookingDate
+                          )
+
+                        const disabled =
+                          isPast ||
+                          isBeyondHorizon
+
+                        return (
+                          <button
+                            key={iso}
+                            type="button"
+                            disabled={
+                              disabled
+                            }
+                            onClick={() => {
+                              setDate(iso)
+                              setError('')
+                            }}
+                            className={
+                              'flex min-w-0 flex-col items-center justify-center rounded-xl border px-0.5 py-2.5 transition-all ' +
+                              (disabled
+                                ? 'cursor-not-allowed border-line bg-paper/50 opacity-30'
+                                : isSelected
+                                  ? 'btn-court border-court shadow-sm'
+                                  : 'border-line bg-paper text-ink hover:border-court')
+                            }
+                          >
+                            <span
+                              className={
+                                'text-[9px] font-semibold uppercase tracking-wide ' +
+                                (isSelected
+                                  ? 'text-paper/70'
+                                  : 'text-muted')
+                              }
+                            >
+                              {formatWeekday(
+                                d
+                              )}
+                            </span>
+
+                            <span className="mt-0.5 font-display text-lg font-semibold">
+                              {d.getDate()}
+                            </span>
+
+                            <span
+                              className={
+                                'text-[9px] font-medium uppercase ' +
+                                (isSelected
+                                  ? 'text-paper/70'
+                                  : 'text-muted')
+                              }
+                            >
+                              {formatMonth(
+                                d
+                              )}
+                            </span>
+                          </button>
+                        )
+                      }
+                    )}
+                  </div>
+
+                  {/* DESKTOP DATES */}
+                  <div className="hidden flex-1 grid-cols-7 gap-2 sm:grid">
+                    {dateWindow.map(
+                      (d) => {
+                        const iso =
+                          toISODate(d)
+
+                        const isSelected =
+                          iso === date
+
+                        const isPast =
+                          iso < todayISO
+
+                        const isBeyondHorizon =
+                          iso >
+                          toISODate(
+                            maxBookingDate
+                          )
+
+                        const disabled =
+                          isPast ||
+                          isBeyondHorizon
+
+                        return (
+                          <button
+                            key={iso}
+                            type="button"
+                            disabled={
+                              disabled
+                            }
+                            onClick={() => {
+                              setDate(iso)
+                              setError('')
+                            }}
+                            className={
+                              'flex min-w-0 flex-col items-center justify-center rounded-xl border px-1 py-3 transition-all ' +
+                              (disabled
+                                ? 'cursor-not-allowed border-line bg-paper/50 opacity-30'
+                                : isSelected
+                                  ? 'btn-court border-court shadow-sm'
+                                  : 'border-line bg-paper text-ink hover:border-court')
+                            }
+                          >
+                            <span
+                              className={
+                                'text-[10px] font-semibold uppercase tracking-wide ' +
+                                (isSelected
+                                  ? 'text-paper/70'
+                                  : 'text-muted')
+                              }
+                            >
+                              {formatWeekday(
+                                d
+                              )}
+                            </span>
+
+                            <span className="mt-1 font-display text-xl font-semibold">
+                              {d.getDate()}
+                            </span>
+
+                            <span
+                              className={
+                                'text-[10px] font-medium uppercase ' +
+                                (isSelected
+                                  ? 'text-paper/70'
+                                  : 'text-muted')
+                              }
+                            >
+                              {formatMonth(
+                                d
+                              )}
+                            </span>
+                          </button>
+                        )
+                      }
+                    )}
+                  </div>
+
+                  {/* NEXT */}
+                  <button
+                    type="button"
+                    disabled={!canGoNext}
+                    onClick={() =>
+                      setDateWindowStart(
+                        (previous) =>
+                          addDays(
+                            previous,
+                            7
+                          )
+                      )
+                    }
+                    className="flex h-12 w-9 shrink-0 items-center justify-center rounded-xl border border-line bg-paper text-xl text-muted transition-colors hover:border-court hover:text-ink disabled:cursor-not-allowed disabled:opacity-30 sm:w-10"
+                    aria-label="Next dates"
+                  >
+                    ›
+                  </button>
+                </div>
+
+                <div className="mt-4 text-center">
+                  <p className="text-sm font-medium text-ink">
+                    Selected:{' '}
+                    {formatDateLong(date)}
+                  </p>
+
+                  {date === todayISO && (
+                    <p className="mt-1 text-xs font-semibold text-court">
+                      Today
+                    </p>
+                  )}
+
+                  {weekendRateActive && (
+                    <p className="mt-1 text-xs font-semibold text-court">
+                      Weekend pricing applies · ₱
+                      {bookingHourlyRate} / hour
+                    </p>
+                  )}
+
+                  {court?.is_24_hours && (
+                    <p className="mt-1 text-xs font-semibold text-court">
+                      This court operates 24 hours
+                    </p>
+                  )}
+                </div>
+              </div>
+            </section>
+
+            {/* TIME */}
+            <section className="rounded-2xl border border-line bg-surface p-4 sm:p-5">
+              <div className="mb-4 flex flex-col gap-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-court">
+                      Step 2
+                    </p>
+
+                    <h2 className="mt-1 text-lg font-semibold text-ink">
+                      Select time
+                    </h2>
+
+                    <p className="mt-1 text-sm text-muted">
+                      Choose a duration or select individual time slots.
+                    </p>
+                  </div>
+
+                  {!loadingSlots &&
+                    slots.length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {[
+  [
+    'all',
+    `All ${slots.length}`,
+  ],
+  [
+    'available',
+    `Available ${availableCount}`,
+  ],
+  [
+    'pending',
+    `Pending ${pendingCount}`,
+  ],
+  [
+    'booked',
+    `Booked ${bookedCount}`,
+  ],
+].map(
+                          ([value, label]) => (
+                            <button
+                              key={value}
+                              type="button"
+                              onClick={() =>
+                                setSlotFilter(
+                                  value as
+                                    | 'all'
+                                    | 'available'
+                                    | 'pending'
+                                    | 'booked'
+                                )
+                              }
+                              className={
+                                'rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ' +
+                                (slotFilter ===
+                                value
+                                  ? 'btn-court border-court'
+                                  : 'border-line text-muted hover:border-court hover:text-ink')
+                              }
+                            >
+                              {label}
+                            </button>
+                          )
+                        )}
+                      </div>
+                    )}
+                </div>
+
+                {/* BOOKING DURATION */}
+                {!loadingSlots &&
+                  slots.length > 0 && (
+                    <div className="rounded-xl border border-line bg-paper p-3 sm:p-4">
+                      <div className="mb-3">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-court">
+                          Booking duration
+                        </p>
+
+                        <p className="mt-1 text-xs text-muted">
+                          Select a starting time first if you want the duration to begin at a specific hour.
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            selectBookingDuration(
+                              '1'
+                            )
+                          }
+                          className={
+                            'rounded-xl border px-3 py-3 text-left transition-all ' +
+                            (bookingDuration ===
+                            '1'
+                              ? 'border-court bg-court/10 ring-2 ring-court/20'
+                              : 'border-line bg-surface hover:border-court')
+                          }
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <div>
+                              <p className="text-sm font-semibold text-ink">
+                                1 Hour
+                              </p>
+
+                              <p className="mt-0.5 text-xs text-muted">
+                                Single court hour
+                              </p>
+                            </div>
+
+                            {bookingDuration ===
+                              '1' && (
+                              <span className="text-court">
+                                ✓
+                              </span>
+                            )}
+                          </div>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            selectBookingDuration(
+                              '6'
+                            )
+                          }
+                          className={
+                            'rounded-xl border px-3 py-3 text-left transition-all ' +
+                            (bookingDuration ===
+                            '6'
+                              ? 'border-court bg-court/10 ring-2 ring-court/20'
+                              : 'border-line bg-surface hover:border-court')
+                          }
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <div>
+                              <p className="text-sm font-semibold text-ink">
+                                6 Hours
+                              </p>
+
+                              <p className="mt-0.5 text-xs text-muted">
+                                Half day
+                              </p>
+                            </div>
+
+                            {bookingDuration ===
+                              '6' && (
+                              <span className="text-court">
+                                ✓
+                              </span>
+                            )}
+                          </div>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            selectBookingDuration(
+                              'full'
+                            )
+                          }
+                          className={
+                            'rounded-xl border px-3 py-3 text-left transition-all ' +
+                            (bookingDuration ===
+                            'full'
+                              ? 'border-court bg-court/10 ring-2 ring-court/20'
+                              : 'border-line bg-surface hover:border-court')
+                          }
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <div>
+                              <p className="text-sm font-semibold text-ink">
+                                Full Day
+                              </p>
+
+                              <p className="mt-0.5 text-xs text-muted">
+                                Entire operating schedule
+                              </p>
+                            </div>
+
+                            {bookingDuration ===
+                              'full' && (
+                              <span className="text-court">
+                                ✓
+                              </span>
+                            )}
+                          </div>
+                        </button>
+                      </div>
+
+                      {bookingDuration && (
+                        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+                          <span className="rounded-full bg-court/10 px-2.5 py-1 font-semibold text-court">
+                            {bookingDuration ===
+                              '1'
+                              ? '1-hour booking'
+                              : bookingDuration ===
+                                  '6'
+                                ? '6-hour half day'
+                                : 'Full-day booking'}
+                          </span>
+
+                          <span className="text-muted">
+                            {selectedSlots.length}{' '}
+                            hour
+                            {selectedSlots.length !==
+                            1
+                              ? 's'
+                              : ''}{' '}
+                            selected
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+              </div>
+
+              {loadingSlots && (
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+                  {Array.from({
+                    length: 12,
+                  }).map(
+                    (_, index) => (
+                      <div
+                        key={index}
+                        className="h-[76px] animate-pulse rounded-xl border border-line bg-paper"
+                      />
+                    )
+                  )}
+                </div>
+              )}
+
+              {!loadingSlots &&
+                slots.length === 0 && (
+                  <div className="rounded-xl border border-dashed border-line bg-paper px-5 py-10 text-center">
+                    <p className="font-medium text-ink">
+                      No available schedule
+                    </p>
+
+                    <p className="mt-1 text-sm text-muted">
+                      This court is closed or unavailable on this date.
+                    </p>
+                  </div>
+                )}
+
+              {!loadingSlots &&
+                slots.length > 0 && (
+                  <>
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+                      {displayedSlots.map(
+                        (slot) => {
+                          const isSelected =
+                            selectedSlots.some(
+                              (selected) =>
+                                selected.start_time ===
+                                slot.start_time
+                            )
+
+                          if (!slot.available) {
+  const isPending =
+    slot.status === 'pending'
+
+  const isBooked =
+    slot.status === 'booked'
+
+  return (
+    <button
+      key={slot.start_time}
+      type="button"
+      disabled
+      className={
+        'flex min-h-[76px] cursor-not-allowed flex-col items-center justify-center rounded-xl border px-3 py-3 text-center ' +
+        (
+          isPending
+            ? 'border-amber-500/30 bg-amber-500/10 text-amber-400'
+            : 'border-red-900/30 bg-red-950/20 text-red-400'
+        )
+      }
+    >
+      <span className="text-sm font-semibold">
+        {formatTime(slot.start_time)}
+      </span>
+
+      <span className="text-[11px] opacity-80">
+        {formatTime(slot.end_time)}
+      </span>
+
+      {isPending && (
+        <span className="mt-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-amber-400">
+          Pending
+        </span>
+      )}
+
+      {isBooked && (
+        <>
+          <span className="mt-1 rounded-full bg-red-500/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-red-400">
+            Booked
+          </span>
+
+          {slot.bookedByName && (
+            <span className="mt-1 max-w-full truncate text-[9px] text-red-300/80">
+              {slot.bookedByName}
+            </span>
+          )}
+        </>
+      )}
+    </button>
+  )
+}
+
+                          return (
+                            <button
+                              key={
+                                slot.start_time
+                              }
+                              type="button"
+                              onClick={() =>
+                                toggleSlot(
+                                  slot
+                                )
+                              }
+                              className={
+                                'group flex min-h-[76px] flex-col items-center justify-center rounded-xl border px-3 py-3 text-center transition-all ' +
+                                (isSelected
+                                  ? 'btn-court border-court shadow-md'
+                                  : 'border-line bg-paper text-ink hover:-translate-y-0.5 hover:border-court hover:shadow-sm')
+                              }
+                            >
+                              <span className="text-sm font-semibold">
+                                {formatTime(
+                                  slot.start_time
+                                )}
+                              </span>
+
+                              <span
+                                className={
+                                  'text-[11px] ' +
+                                  (isSelected
+                                    ? 'text-paper/70'
+                                    : 'text-muted')
+                                }
+                              >
+                                {formatTime(
+                                  slot.end_time
+                                )}
+                              </span>
+
+                              <span
+                                className={
+                                  'mt-1 text-[11px] font-medium ' +
+                                  (isSelected
+                                    ? 'text-paper/80'
+                                    : 'text-court')
+                                }
+                              >
+                                ₱
+                                {bookingHourlyRate}
+                              </span>
+                            </button>
+                          )
+                        }
+                      )}
+                    </div>
+
+                    <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-line pt-4 text-xs text-muted">
+  <span className="inline-flex items-center gap-2">
+    <span className="h-2.5 w-2.5 rounded-full border border-court/40 bg-paper" />
+    Available
+  </span>
+
+  <span className="inline-flex items-center gap-2">
+    <span className="h-2.5 w-2.5 rounded-full bg-court" />
+    Selected
+  </span>
+
+  <span className="inline-flex items-center gap-2">
+    <span className="h-2.5 w-2.5 rounded-full bg-amber-400" />
+    Pending
+  </span>
+
+  <span className="inline-flex items-center gap-2">
+    <span className="h-2.5 w-2.5 rounded-full bg-red-500" />
+    Booked
+  </span>
+</div>
+
+                    {error && (
+                      <div className="mt-4 rounded-xl border border-red-900/30 bg-red-950/20 px-4 py-3">
+                        <p className="text-sm font-medium text-red-400">
+                          {error}
+                        </p>
+                      </div>
+                    )}
+                  </>
+                )}
+            </section>
+
+            {/* CUSTOMER DETAILS */}
+            {selectedSlots.length > 0 &&
+              court && (
+                <>
+                  {/* DESKTOP */}
+                  <section className="hidden rounded-2xl border border-line bg-surface p-4 sm:p-5 lg:block">
+                    <div className="mb-5">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-court">
+                        Step 3
+                      </p>
+
+                      <h2 className="mt-1 text-lg font-semibold text-ink">
+                        Customer details
+                      </h2>
+
+                      <p className="mt-1 text-sm text-muted">
+                        No account is required to complete your booking.
+                      </p>
+                    </div>
+
+                    {user && (
+                      <div className="mb-5">
+                        <label className="mb-2 block text-sm font-medium text-ink">
+                          Booking type
+                        </label>
+
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setBookAsGuest(
+                                false
+                              )
+                              setError('')
+                            }}
+                            className={
+                              'rounded-xl border px-4 py-3 text-sm font-medium transition-colors ' +
+                              (!bookAsGuest
+                                ? 'btn-court border-court'
+                                : 'border-line text-muted hover:border-court')
+                            }
+                          >
+                            My account
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setBookAsGuest(
+                                true
+                              )
+                              setError('')
+                            }}
+                            className={
+                              'rounded-xl border px-4 py-3 text-sm font-medium transition-colors ' +
+                              (bookAsGuest
+                                ? 'btn-court border-court'
+                                : 'border-line text-muted hover:border-court')
+                            }
+                          >
+                            Guest
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {bookAsGuest && (
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="sm:col-span-2">
+                          <label className="mb-2 block text-sm font-medium text-ink">
+                            Name
+                          </label>
+
+                          <input
+                            type="text"
+                            placeholder="Juan Dela Cruz"
+                            value={
+                              guestName
+                            }
+                            onChange={(
+                              e
+                            ) => {
+                              setGuestName(
+                                e.target.value
+                              )
+
+                              if (
+                                error
+                              ) {
+                                setError(
+                                  ''
+                                )
+                              }
+                            }}
+                            className="w-full rounded-xl border border-line bg-paper px-4 py-3 text-sm text-ink outline-none placeholder:text-muted focus:border-court"
+                          />
+                        </div>
+
+                        <div className="sm:col-span-2">
+                          <label className="mb-2 block text-sm font-medium text-ink">
+                            Mobile number
+                          </label>
+
+                          <input
+                            type="tel"
+                            placeholder="09XX XXX XXXX"
+                            value={
+                              guestPhone
+                            }
+                            onChange={(
+                              e
+                            ) => {
+                              setGuestPhone(
+                                e.target.value
+                              )
+
+                              if (
+                                error
+                              ) {
+                                setError(
+                                  ''
+                                )
+                              }
+                            }}
+                            className="w-full rounded-xl border border-line bg-paper px-4 py-3 text-sm text-ink outline-none placeholder:text-muted focus:border-court"
+                          />
+
+                          {error && (
+                            <p className="mt-3 text-sm font-medium text-red-400">
+                              {error}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    {/* Payment option hidden for now 
+                    <div className="mt-6 border-t border-line pt-5">
+                      <label className="mb-3 block text-sm font-medium text-ink">
+                        Payment option
+                      </label>
+
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setPaymentType(
+                              'full'
+                            )
+                          }
+                          className={
+                            'rounded-xl border p-4 text-left transition-colors ' +
+                            (paymentType ===
+                            'full'
+                              ? 'border-court bg-court/10'
+                              : 'border-line bg-paper hover:border-court')
+                          }
+                        >
+                          <p className="text-sm font-semibold text-ink">
+                            Full payment
+                          </p>
+
+                          <p className="mt-1 text-xs text-muted">
+                            Pay ₱
+                            {getTotalPrice()}{' '}
+                            now
+                          </p>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setPaymentType(
+                              'deposit'
+                            )
+                          }
+                          className={
+                            'rounded-xl border p-4 text-left transition-colors ' +
+                            (paymentType ===
+                            'deposit'
+                              ? 'border-court bg-court/10'
+                              : 'border-line bg-paper hover:border-court')
+                          }
+                        >
+                          <p className="text-sm font-semibold text-ink">
+                            Deposit
+                          </p>
+
+                          <p className="mt-1 text-xs text-muted">
+                            {
+                              settings?.deposit_percentage ??
+                              50
+                            }
+                            % deposit · ₱
+                            {Math.round(
+                              (getTotalPrice() *
+                                (settings?.deposit_percentage ??
+                                  50)) /
+                                100
+                            )}
+                          </p>
+                        </button>
+                      </div>
+                    </div>
+                    */}
+                  </section>
+
+                  {/* MOBILE CUSTOMER SHEET */}
+                  {customerDetailsOpen && (
+                    <div className="fixed inset-0 z-50 lg:hidden">
+                      <button
+                        type="button"
+                        aria-label="Close customer details"
+                        onClick={() => {
+                          setCustomerDetailsOpen(
+                            false
+                          )
+                          setError('')
+                        }}
+                        className="absolute inset-0 bg-black/70"
+                      />
+
+                      <div className="absolute inset-x-0 bottom-0 max-h-[90vh] overflow-y-auto rounded-t-3xl border-t border-line bg-surface shadow-2xl">
+                        <div className="flex justify-center pt-3">
+                          <div className="h-1.5 w-12 rounded-full bg-line" />
+                        </div>
+
+                        <div className="flex items-center justify-between border-b border-line px-5 py-4">
+                          <div>
+                            <p className="text-xs font-semibold uppercase tracking-wider text-court">
+                              Step 3
+                            </p>
+
+                            <h2 className="mt-1 text-lg font-semibold text-ink">
+                              Customer details
+                            </h2>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCustomerDetailsOpen(
+                                false
+                              )
+                              setError('')
+                            }}
+                            className="flex h-9 w-9 items-center justify-center rounded-full border border-line text-lg text-muted hover:text-ink"
+                            aria-label="Close"
+                          >
+                            ×
+                          </button>
+                        </div>
+
+                        <div className="space-y-5 p-5 pb-8">
+                          {user && (
+                            <div>
+                              <label className="mb-2 block text-sm font-medium text-ink">
+                                Booking type
+                              </label>
+
+                              <div className="grid grid-cols-2 gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setBookAsGuest(
+                                      false
+                                    )
+                                    setError('')
+                                  }}
+                                  className={
+                                    'rounded-xl border px-4 py-3 text-sm font-medium transition-colors ' +
+                                    (!bookAsGuest
+                                      ? 'btn-court border-court'
+                                      : 'border-line text-muted')
+                                  }
+                                >
+                                  My account
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setBookAsGuest(
+                                      true
+                                    )
+                                    setError('')
+                                  }}
+                                  className={
+                                    'rounded-xl border px-4 py-3 text-sm font-medium transition-colors ' +
+                                    (bookAsGuest
+                                      ? 'btn-court border-court'
+                                      : 'border-line text-muted')
+                                  }
+                                >
+                                  Guest
+                                </button>
+                              </div>
+                            </div>
+                          )}
+
+                          {bookAsGuest && (
+                            <div className="space-y-4">
+                              <div>
+                                <label className="mb-2 block text-sm font-medium text-ink">
+                                  Name
+                                </label>
+
+                                <input
+                                  type="text"
+                                  placeholder="Juan Dela Cruz"
+                                  value={
+                                    guestName
+                                  }
+                                  onChange={(
+                                    e
+                                  ) => {
+                                    setGuestName(
+                                      e.target.value
+                                    )
+
+                                    if (
+                                      error
+                                    ) {
+                                      setError(
+                                        ''
+                                      )
+                                    }
+                                  }}
+                                  className="w-full rounded-xl border border-line bg-paper px-4 py-3.5 text-sm text-ink outline-none placeholder:text-muted focus:border-court"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="mb-2 block text-sm font-medium text-ink">
+                                  Mobile number
+                                </label>
+
+                                <input
+                                  type="tel"
+                                  placeholder="09XX XXX XXXX"
+                                  value={
+                                    guestPhone
+                                  }
+                                  onChange={(
+                                    e
+                                  ) => {
+                                    setGuestPhone(
+                                      e.target.value
+                                    )
+
+                                    if (
+                                      error
+                                    ) {
+                                      setError(
+                                        ''
+                                      )
+                                    }
+                                  }}
+                                  className="w-full rounded-xl border border-line bg-paper px-4 py-3.5 text-sm text-ink outline-none transition-colors placeholder:text-muted focus:border-court"
+                                />
+
+                                {error && (
+                                  <p className="mt-3 text-sm font-medium text-red-400">
+                                    {error}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                          {/* Payment option hidden for now 
+                          <div className="border-t border-line pt-5">
+                            <label className="mb-3 block text-sm font-medium text-ink">
+                              Payment option
+                            </label>
+
+                            <div className="space-y-3">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setPaymentType(
+                                    'full'
+                                  )
+                                }
+                                className={
+                                  'w-full rounded-xl border p-4 text-left transition-colors ' +
+                                  (paymentType ===
+                                  'full'
+                                    ? 'border-court bg-court/10'
+                                    : 'border-line bg-paper')
+                                }
+                              >
+                                <div className="flex items-center justify-between gap-3">
+                                  <div>
+                                    <p className="text-sm font-semibold text-ink">
+                                      Full payment
+                                    </p>
+
+                                    <p className="mt-1 text-xs text-muted">
+                                      Pay ₱
+                                      {getTotalPrice()}{' '}
+                                      now
+                                    </p>
+                                  </div>
+
+                                  {paymentType ===
+                                    'full' && (
+                                    <span className="text-court">
+                                      ✓
+                                    </span>
+                                  )}
+                                </div>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setPaymentType(
+                                    'deposit'
+                                  )
+                                }
+                                className={
+                                  'w-full rounded-xl border p-4 text-left transition-colors ' +
+                                  (paymentType ===
+                                  'deposit'
+                                    ? 'border-court bg-court/10'
+                                    : 'border-line bg-paper')
+                                }
+                              >
+                                <div className="flex items-center justify-between gap-3">
+                                  <div>
+                                    <p className="text-sm font-semibold text-ink">
+                                      Deposit
+                                    </p>
+
+                                    <p className="mt-1 text-xs text-muted">
+                                      {
+                                        settings?.deposit_percentage ??
+                                        50
+                                      }
+                                      % deposit · ₱
+                                      {Math.round(
+                                        (getTotalPrice() *
+                                          (settings?.deposit_percentage ??
+                                            50)) /
+                                          100
+                                      )}
+                                    </p>
+                                  </div>
+
+                                  {paymentType ===
+                                    'deposit' && (
+                                    <span className="text-court">
+                                      ✓
+                                    </span>
+                                  )}
+                                </div>
+                              </button>
+                            </div>
+                          </div>
+                                */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (
+                                !validateCustomerDetails()
+                              ) {
+                                return
+                              }
+
+                              setError('')
+                              setCustomerDetailsOpen(
+                                false
+                              )
+                              setModalStep(
+                                'rules'
+                              )
+                            }}
+                            className="btn-court w-full rounded-xl px-5 py-3.5 text-sm font-semibold"
+                          >
+                            Continue →
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+          </main>
+
+          {/* DESKTOP SUMMARY */}
+          <aside className="hidden lg:block">
+            <div className="sticky top-6">
+              <div className="overflow-hidden rounded-2xl border border-line bg-surface">
+
+                <div className="border-b border-line p-5">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-court">
+                    Booking summary
+                  </p>
+
+                  <h2 className="mt-1 text-xl font-semibold text-ink">
+                    {court?.name ??
+                      'Select a court'}
+                  </h2>
+
+                  <p className="mt-1 text-sm text-muted">
+                    {formatDateLong(date)}
+                  </p>
+                </div>
+
+                <div className="p-5">
+                  {!court ? (
+                    <div className="rounded-xl border border-dashed border-line bg-paper px-4 py-8 text-center">
+                      <p className="text-sm font-medium text-ink">
+                        No court selected
+                      </p>
+                    </div>
+                  ) : selectedSlots.length ===
+                    0 ? (
+                    <div className="rounded-xl border border-dashed border-line bg-paper px-4 py-8 text-center">
+                      <p className="text-sm font-medium text-ink">
+                        No time selected
+                      </p>
+
+                      <p className="mt-1 text-xs text-muted">
+                        Choose one or more available slots to continue.
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      {bookingDuration && (
+                        <div className="mb-4 rounded-xl border border-court/20 bg-court/5 px-3 py-2.5">
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-court">
+                            Booking type
+                          </p>
+
+                          <p className="mt-0.5 text-sm font-semibold text-ink">
+                            {bookingDuration ===
+                              '1'
+                              ? '1 Hour'
+                              : bookingDuration ===
+                                  '6'
+                                ? '6 Hours · Half Day'
+                                : 'Full Day'}
+                          </p>
+                        </div>
+                      )}
+
+                      <div className="space-y-3">
+                        {selectedGroups.map(
+                          (group) => (
+                            <div
+                              key={`${group.start}-${group.end}`}
+                              className="rounded-xl border border-line bg-paper p-3"
+                            >
+                              <div className="flex items-center justify-between gap-3">
+                                <div>
+                                  <p className="text-sm font-semibold text-ink">
+                                    {formatTime(
+                                      group.start
+                                    )}{' '}
+                                    –{' '}
+                                    {formatTime(
+                                      group.end
+                                    )}
+                                  </p>
+
+                                  <p className="mt-0.5 text-xs text-muted">
+                                    {group.hours}{' '}
+                                    hour
+                                    {group.hours >
+                                    1
+                                      ? 's'
+                                      : ''}
+                                    {group.isSeparate
+                                      ? ' · Separate slot'
+                                      : ''}
+                                  </p>
+                                </div>
+
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const groupSlots =
+                                      selectedSlots.filter(
+                                        (slot) =>
+                                          slot.start_time >=
+                                            group.start &&
+                                          slot.end_time <=
+                                            group.end
+                                      )
+
+                                    groupSlots.forEach(
+                                      (
+                                        slot
+                                      ) =>
+                                        removeSlot(
+                                          slot.start_time
+                                        )
+                                    )
+                                  }}
+                                  className="text-xs text-muted hover:text-red-400"
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                            </div>
+                          )
+                        )}
+                      </div>
+
+                      <div className="my-5 border-t border-line" />
+
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between gap-4">
+                          <span className="text-muted">
+                            Hours
+                          </span>
+
+                          <span className="font-medium text-ink">
+                            {
+                              selectedSlots.length
+                            }
+                          </span>
+                        </div>
+
+                        <div className="flex justify-between gap-4">
+                          <span className="text-muted">
+                            Rate
+                          </span>
+
+                          <span className="font-medium text-ink">
+                            ₱
+                            {
+                              bookingHourlyRate
+                            }{' '}
+                            / hr
+                          </span>
+                        </div>
+
+                        {weekendRateActive && (
+                          <div className="flex justify-between gap-4">
+                            <span className="text-muted">
+                              Pricing
+                            </span>
+
+                            <span className="font-medium text-court">
+                              Weekend rate
+                            </span>
+                          </div>
+                        )}
+
+                        <div className="flex justify-between gap-4">
+                          <span className="text-muted">
+                            Payment
+                          </span>
+
+                          <span className="font-medium capitalize text-ink">
+                            {paymentType}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="my-5 border-t border-line" />
+
+                      <div className="flex items-end justify-between gap-4">
+                        <div>
+                          <p className="text-xs text-muted">
+                            Total
+                          </p>
+
+                          <p className="mt-1 font-display text-3xl font-semibold text-ink">
+                            ₱
+                            {getTotalPrice()}
+                          </p>
+                        </div>
+
+                        {paymentType ===
+                          'deposit' && (
+                          <div className="text-right">
+                            <p className="text-xs text-muted">
+                              Due now
+                            </p>
+
+                            <p className="font-semibold text-court">
+                              ₱
+                              {getAmountDue()}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={
+                          openRulesModal
+                        }
+                        className="btn-court mt-5 w-full rounded-xl px-5 py-3.5 text-sm font-semibold transition-all hover:opacity-90"
+                      >
+                        Continue to booking →
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </div>
+
+      {/* MOBILE STICKY SUMMARY */}
+      {selectedSlots.length > 0 &&
+        court && (
+          <div className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface/95 shadow-2xl backdrop-blur lg:hidden">
+            <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3 sm:px-6">
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-xs font-semibold uppercase tracking-wide text-court">
+                  {court.name}
+                </p>
+
+                <p className="truncate text-sm font-medium text-ink">
+                  {selectedGroups
+                    .map(
+                      (group) =>
+                        `${formatTime(
+                          group.start
+                        )}–${formatTime(
+                          group.end
+                        )}`
+                    )
+                    .join(' · ')}
+                </p>
+
+                <p className="text-xs text-muted">
+                  {selectedSlots.length}{' '}
+                  hr
+                  {selectedSlots.length >
+                  1
+                    ? 's'
+                    : ''}{' '}
+                  · ₱
+                  {getTotalPrice()}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setError('')
+                  setCustomerDetailsOpen(
+                    true
+                  )
+                }}
+                className="btn-court shrink-0 rounded-xl px-5 py-3 text-sm font-semibold"
+              >
+                Continue →
+              </button>
+            </div>
+          </div>
+        )}
+
+      {/* CUSTOMER VALIDATION ALERT */}
+      {customerAlertOpen && (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="customer-required-title"
+        >
+          <button
+            type="button"
+            aria-label="Close customer information notice"
+            onClick={() =>
+              setCustomerAlertOpen(false)
+            }
+            className="absolute inset-0 cursor-default"
+          />
+
+          <div className="relative z-10 w-full max-w-sm overflow-hidden rounded-2xl border border-line bg-surface shadow-2xl">
+            <div className="p-6 text-center">
+              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-amber-500/10 text-2xl text-amber-400">
+                !
+              </div>
+
+              <h2
+                id="customer-required-title"
+                className="font-display text-xl font-semibold text-ink"
+              >
+                Customer information required
+              </h2>
+
+              <p className="mt-2 text-sm leading-6 text-muted">
+                Please enter the customer's name and mobile number before continuing with your booking.
+              </p>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setCustomerAlertOpen(false)
+                }
+                className="btn-court mt-5 w-full rounded-xl px-5 py-3 text-sm font-semibold"
+              >
+                Okay, got it
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* RULES MODAL */}
+      {modalStep === 'rules' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <div className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-2xl border border-line bg-surface">
+            <div className="border-b border-line p-6">
+              <h2 className="font-display text-xl font-semibold text-ink">
+                Booking rules
+              </h2>
+
+              <p className="mt-1 text-sm text-muted">
+                Please review these rules before continuing.
+              </p>
+            </div>
+
+            <div className="p-6">
+              <ol className="mb-6 list-inside list-decimal space-y-3 text-sm text-muted">
+                {BOOKING_RULES.map(
+                  (rule, index) => (
+                    <li key={index}>
+                      {rule}
+                    </li>
+                  )
+                )}
+              </ol>
+
+              <label className="mb-6 flex cursor-pointer items-start gap-2 text-sm text-ink">
+                <input
+                  type="checkbox"
+                  checked={
+                    agreedToRules
+                  }
+                  onChange={(e) =>
+                    setAgreedToRules(
+                      e.target.checked
+                    )
+                  }
+                  className="mt-0.5"
+                />
+
+                <span>
+                  I have read and agree to the booking rules.
+                </span>
+              </label>
+
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setModalStep(
+                      'none'
+                    )
+                    setError('')
+                  }}
+                  className="flex-1 rounded-xl border border-line px-4 py-2.5 font-medium text-ink transition-colors hover:border-court"
+                >
+                  Back
+                </button>
+
+                <button
+                  type="button"
+                  onClick={
+                    proceedToPayment
+                  }
+                  disabled={
+                    !agreedToRules
+                  }
+                  className="btn-court flex-1 rounded-xl px-4 py-2.5 font-medium transition-colors disabled:opacity-40"
+                >
+                  Continue to payment
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PAYMENT MODAL */}
+      {modalStep === 'payment' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border border-line bg-surface">
+            <div className="border-b border-line p-6">
+              <h2 className="font-display text-xl font-semibold text-ink">
+                Complete payment
+              </h2>
+
+              <p className="mt-1 text-sm text-muted">
+                Pay ₱
+                {getAmountDue()} via GCash, then upload your payment screenshot.
+              </p>
+            </div>
+
+            <div className="p-6">
+              {error && (
+                <p className="mb-4 text-sm text-red-400">
+                  {error}
+                </p>
+              )}
+
+              {settings?.gcash_qr_url && (
+                <img
+                  src={
+                    settings.gcash_qr_url
+                  }
+                  alt="GCash QR"
+                  className="mx-auto mb-4 h-40 w-40 rounded-lg border border-line bg-white object-contain"
+                />
+              )}
+
+              {(settings?.gcash_number ||
+                settings?.gcash_name) && (
+                <div className="mb-4 space-y-1 text-sm text-ink">
+                  {settings.gcash_name && (
+                    <p>
+                      Account name:{' '}
+                      <span className="font-medium">
+                        {
+                          settings.gcash_name
+                        }
+                      </span>
+                    </p>
+                  )}
+
+                  {settings.gcash_number && (
+                    <p>
+                      GCash number:{' '}
+                      <span className="font-medium">
+                        {
+                          settings.gcash_number
+                        }
+                      </span>
+                    </p>
+                  )}
+                </div>
+              )}
+
+              <div className="mb-6">
+                <label className="mb-2 block text-sm font-medium text-muted">
+                  Upload payment screenshot
+                </label>
+
+                <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-line bg-paper px-4 py-6 transition-colors hover:border-court">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) =>
+                      setProofFile(
+                        e.target.files?.[0] ??
+                          null
+                      )
+                    }
+                    className="hidden"
+                  />
+
+                  <span className="text-center text-sm text-muted">
+                    {proofFile ? (
+                      <span className="font-medium text-ink">
+                        {
+                          proofFile.name
+                        }
+                      </span>
+                    ) : (
+                      <>
+                        <span className="font-medium text-court">
+                          Tap to upload
+                        </span>{' '}
+                        a screenshot
+                      </>
+                    )}
+                  </span>
+                </label>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setModalStep(
+                      'rules'
+                    )
+                    setError('')
+                  }}
+                  className="flex-1 rounded-xl border border-line px-4 py-2.5 font-medium text-ink transition-colors hover:border-court"
+                >
+                  Back
+                </button>
+
+                <button
+                  type="button"
+                  onClick={
+                    handleSubmitBooking
+                  }
+                  disabled={
+                    !proofFile ||
+                    submitting
+                  }
+                  className="btn-court flex-1 rounded-xl px-4 py-2.5 font-medium transition-colors disabled:opacity-40"
+                >
+                  {submitting
+                    ? 'Submitting...'
+                    : 'Confirm booking'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SUCCESS MODAL */}
+      {modalStep === 'success' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <div className="w-full max-w-sm rounded-2xl border border-line bg-surface p-6 text-center">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-court/15 text-2xl text-court">
+              ✓
+            </div>
+
+            <h2 className="mb-2 font-display text-xl font-semibold text-ink">
+              Booking submitted
+            </h2>
+
+            <p className="mb-1 text-sm text-muted">
+              Your payment proof has been sent for verification. You'll be notified once confirmed.
+            </p>
+
+            <div className="my-4 rounded-xl border border-line bg-paper px-4 py-3">
+              <p className="mb-2 text-xs text-muted">
+                Booking reference
+              </p>
+
+              <div className="flex items-center justify-center gap-2">
+                <p className="font-display text-lg font-semibold tracking-wide text-court">
+                  {bookingReference}
+                </p>
+
+                <button
+                  type="button"
+                  onClick={
+                    handleCopyBookingReference
+                  }
+                  className="rounded-lg border border-line bg-surface px-2.5 py-1.5 text-[11px] font-semibold text-muted transition-colors hover:border-court hover:text-court"
+                  aria-label="Copy booking reference"
+                >
+                  {copied
+                    ? '✓ Copied!'
+                    : 'Copy'}
+                </button>
+              </div>
+            </div>
+
+            <p className="mb-6 text-xs text-muted">
+              Save this reference to look up your booking later.
+            </p>
+
+            <button
+              type="button"
+              onClick={
+                closeModals
+              }
+              className="btn-court w-full rounded-xl px-6 py-2.5 font-medium transition-colors"
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+
+
+
+
+
+
+
