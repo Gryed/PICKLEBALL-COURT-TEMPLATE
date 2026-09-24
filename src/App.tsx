@@ -1,4 +1,3 @@
-
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import Navbar from './components/Navbar'
 import Footer from './components/Footer'
@@ -26,6 +25,7 @@ import AdminOpenPlayDetails from './pages/admin/OpenPlayDetails'
 import OpenPlayDetails from './pages/OpenPlayDetails'
 import SuperAdminDashboard from './pages/SuperAdminDashboard'
 import SuperAdminOrganizations from './pages/SuperAdminOrganizations'
+import { OrganizationProvider } from './context/OrganizationContext'
 
 function PublicLayout({
   children,
@@ -34,274 +34,269 @@ function PublicLayout({
 }) {
   return (
     <div className="flex min-h-screen flex-col bg-paper">
-        <Navbar />
+      <Navbar />
 
-        <main className="flex-1">
-          {children}
-        </main>
+      <main className="flex-1">
+        {children}
+      </main>
 
-        <Footer />
+      <Footer />
     </div>
   )
 }
 
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        {/* =========================
-            PUBLIC ROUTES
-        ========================== */}
+    <OrganizationProvider>
+      <BrowserRouter>
+        <Routes>
+          {/* =========================
+              PUBLIC ROUTES
+          ========================== */}
 
-        <Route
-          path="/"
-          element={
-            <PublicLayout>
-              <Home />
-            </PublicLayout>
-          }
-        />
-
-        <Route
-          path="/booking"
-          element={
-            <PublicLayout>
-              <Booking />
-            </PublicLayout>
-          }
-        />
-
-        <Route
-          path="/my-bookings"
-          element={
-            <PublicLayout>
-              <MyBookings />
-            </PublicLayout>
-          }
-        />
-
-        <Route
-          path="/my-open-play"
-          element={
-            <ProtectedRoute>
+          <Route
+            path="/"
+            element={
               <PublicLayout>
-                <MyOpenPlay />
+                <Home />
               </PublicLayout>
-            </ProtectedRoute>
-          }
-        />
+            }
+          />
 
-        <Route
-          path="/find-booking"
-          element={
-            <PublicLayout>
-              <FindBooking />
-            </PublicLayout>
-          }
-        />
+          <Route
+            path="/booking"
+            element={
+              <PublicLayout>
+                <Booking />
+              </PublicLayout>
+            }
+          />
 
-        <Route
-          path="/login"
-          element={
-            <PublicLayout>
-              <Login />
-            </PublicLayout>
-          }
-        />
+          <Route
+            path="/my-bookings"
+            element={
+              <PublicLayout>
+                <MyBookings />
+              </PublicLayout>
+            }
+          />
 
-        <Route
-          path="/signup"
-          element={
-            <PublicLayout>
-              <Signup />
-            </PublicLayout>
-          }
-        />
+          <Route
+            path="/my-open-play"
+            element={
+              <ProtectedRoute>
+                <PublicLayout>
+                  <MyOpenPlay />
+                </PublicLayout>
+              </ProtectedRoute>
+            }
+          />
 
-        {/* =========================
-            SUPER ADMIN ROUTES
-        ========================== */}
+          <Route
+            path="/find-booking"
+            element={
+              <PublicLayout>
+                <FindBooking />
+              </PublicLayout>
+            }
+          />
 
-        <Route
-          path="/super-admin/organizations"
-          element={
-            <SuperAdminRoute>
-              <SuperAdminOrganizations />
-            </SuperAdminRoute>
-          }
-        />
+          <Route
+            path="/login"
+            element={
+              <PublicLayout>
+                <Login />
+              </PublicLayout>
+            }
+          />
 
-        <Route
-          path="/super-admin"
-          element={
-            <SuperAdminRoute>
-              <SuperAdminDashboard />
-            </SuperAdminRoute>
-          }
-        />
+          <Route
+            path="/signup"
+            element={
+              <PublicLayout>
+                <Signup />
+              </PublicLayout>
+            }
+          />
 
-        {/* =========================
-            ADMIN ROUTES
-        ========================== */}
+          {/* =========================
+              SUPER ADMIN ROUTES
+          ========================== */}
 
-        <Route
-          path="/admin"
-          element={
-            <ProtectedRoute>
-              <AdminLayout>
-                <Dashboard />
-              </AdminLayout>
-            </ProtectedRoute>
-          }
-        />
+          <Route
+            path="/super-admin/organizations"
+            element={
+              <SuperAdminRoute>
+                <SuperAdminOrganizations />
+              </SuperAdminRoute>
+            }
+          />
 
-        <Route
-          path="/admin/courts"
-          element={
-            <ProtectedRoute>
-              <AdminLayout>
-                <CourtManagement />
-              </AdminLayout>
-            </ProtectedRoute>
-          }
-        />
+          <Route
+            path="/super-admin"
+            element={
+              <SuperAdminRoute>
+                <SuperAdminDashboard />
+              </SuperAdminRoute>
+            }
+          />
 
-        <Route
-          path="/admin/hours"
-          element={
-            <ProtectedRoute>
-              <AdminLayout>
-                <OperatingHoursPage />
-              </AdminLayout>
-            </ProtectedRoute>
-          }
-        />
+          {/* =========================
+              ADMIN ROUTES
+          ========================== */}
 
-        <Route
-          path="/admin/payments"
-          element={
-            <ProtectedRoute>
-              <AdminLayout>
-                <PaymentSettings />
-              </AdminLayout>
-            </ProtectedRoute>
-          }
-        />
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute>
+                <AdminLayout>
+                  <Dashboard />
+                </AdminLayout>
+              </ProtectedRoute>
+            }
+          />
 
-        <Route
-          path="/admin/payments/pending"
-          element={
-            <ProtectedRoute>
-              <AdminLayout>
-                <PendingPayments />
-              </AdminLayout>
-            </ProtectedRoute>
-          }
-        />
+          <Route
+            path="/admin/courts"
+            element={
+              <ProtectedRoute>
+                <AdminLayout>
+                  <CourtManagement />
+                </AdminLayout>
+              </ProtectedRoute>
+            }
+          />
 
-        <Route
-          path="/admin/reservations"
-          element={
-            <ProtectedRoute>
-              <AdminLayout>
-                <Reservations />
-              </AdminLayout>
-            </ProtectedRoute>
-          }
-        />
+          <Route
+            path="/admin/hours"
+            element={
+              <ProtectedRoute>
+                <AdminLayout>
+                  <OperatingHoursPage />
+                </AdminLayout>
+              </ProtectedRoute>
+            }
+          />
 
-        <Route
-          path="/admin/reports"
-          element={
-            <ProtectedRoute>
-              <AdminLayout>
-                <Reports />
-              </AdminLayout>
-            </ProtectedRoute>
-          }
-        />
+          <Route
+            path="/admin/payments"
+            element={
+              <ProtectedRoute>
+                <AdminLayout>
+                  <PaymentSettings />
+                </AdminLayout>
+              </ProtectedRoute>
+            }
+          />
 
-        <Route
-          path="/admin/create-booking"
-          element={
-            <ProtectedRoute>
-              <AdminLayout>
-                <CreateBooking />
-              </AdminLayout>
-            </ProtectedRoute>
-          }
-        />
+          <Route
+            path="/admin/payments/pending"
+            element={
+              <ProtectedRoute>
+                <AdminLayout>
+                  <PendingPayments />
+                </AdminLayout>
+              </ProtectedRoute>
+            }
+          />
 
-                {/* =========================
-            ADMIN OPEN PLAY
-        ========================== */}
+          <Route
+            path="/admin/reservations"
+            element={
+              <ProtectedRoute>
+                <AdminLayout>
+                  <Reservations />
+                </AdminLayout>
+              </ProtectedRoute>
+            }
+          />
 
-        <Route
-          path="/admin/open-play"
-          element={
-            <ProtectedRoute>
-              <AdminLayout>
-                <AdminOpenPlay />
-              </AdminLayout>
-            </ProtectedRoute>
-          }
-        />
+          <Route
+            path="/admin/reports"
+            element={
+              <ProtectedRoute>
+                <AdminLayout>
+                  <Reports />
+                </AdminLayout>
+              </ProtectedRoute>
+            }
+          />
 
-        <Route
-          path="/admin/open-play/:sessionId"
-          element={
-            <ProtectedRoute>
-              <AdminLayout>
-                <AdminOpenPlayDetails />
-              </AdminLayout>
-            </ProtectedRoute>
-          }
-        />
+          <Route
+            path="/admin/create-booking"
+            element={
+              <ProtectedRoute>
+                <AdminLayout>
+                  <CreateBooking />
+                </AdminLayout>
+              </ProtectedRoute>
+            }
+          />
 
-        {/* =========================
-            PUBLIC OPEN PLAY
-        ========================== */}
+          {/* =========================
+              ADMIN OPEN PLAY
+          ========================== */}
 
-        <Route
-          path="/open-play"
-          element={
-            <PublicLayout>
-              <OpenPlay />
-            </PublicLayout>
-          }
-        />
+          <Route
+            path="/admin/open-play"
+            element={
+              <ProtectedRoute>
+                <AdminLayout>
+                  <AdminOpenPlay />
+                </AdminLayout>
+              </ProtectedRoute>
+            }
+          />
 
-<Route
-  path="/open-play/:sessionId"
-  element={
-    <PublicLayout>
-      <OpenPlayDetails />
-    </PublicLayout>
-  }
-/>
-        {/* =========================
-            RUNTIME SECURITY TEST
-        ========================== */}
-        {/* =========================
-            404
-        ========================== */}
+          <Route
+            path="/admin/open-play/:sessionId"
+            element={
+              <ProtectedRoute>
+                <AdminLayout>
+                  <AdminOpenPlayDetails />
+                </AdminLayout>
+              </ProtectedRoute>
+            }
+          />
 
-        <Route
-          path="*"
-          element={
-            <div className="flex min-h-screen items-center justify-center bg-paper p-8 text-muted">
-              404 � Page Not Found
-            </div>
-          }
-        />
-      </Routes>
-    </BrowserRouter>
+          {/* =========================
+              PUBLIC OPEN PLAY
+          ========================== */}
+
+          <Route
+            path="/open-play"
+            element={
+              <PublicLayout>
+                <OpenPlay />
+              </PublicLayout>
+            }
+          />
+
+          <Route
+            path="/open-play/:sessionId"
+            element={
+              <PublicLayout>
+                <OpenPlayDetails />
+              </PublicLayout>
+            }
+          />
+
+          {/* =========================
+              404
+          ========================== */}
+
+          <Route
+            path="*"
+            element={
+              <div className="flex min-h-screen items-center justify-center bg-paper p-8 text-muted">
+                404 - Page Not Found
+              </div>
+            }
+          />
+        </Routes>
+      </BrowserRouter>
+    </OrganizationProvider>
   )
 }
 
 export default App
-
-
-
-
-

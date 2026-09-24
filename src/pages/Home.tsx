@@ -1,14 +1,23 @@
 import { Link } from 'react-router-dom'
+import { useOrganization } from '../context/OrganizationContext'
 
 export default function Home() {
+  const { organization, branding, loading } = useOrganization()
+
+  const organizationName =
+    organization?.name ?? 'Pickleball Court'
+
+  const heroImage =
+    branding?.hero_image_url ?? '/images/alexxamie-hero.jpg'
+
   return (
     <main className="bg-paper text-ink">
       {/* HERO */}
       <section className="relative min-h-[calc(100vh-64px)] overflow-hidden">
         {/* Hero Image */}
         <img
-          src="/images/alexxamie-hero.jpg"
-          alt="Pickleball court"
+          src={heroImage}
+          alt={`${organizationName} pickleball court`}
           className="absolute inset-0 h-full w-full object-cover opacity-70"
         />
 
@@ -22,8 +31,9 @@ export default function Home() {
             {/* Eyebrow */}
             <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 backdrop-blur-sm">
               <span className="h-2 w-2 rounded-full bg-court" />
+
               <span className="text-xs font-semibold tracking-[0.2em]">
-                PLAY. BOOK. ENJOY.
+                {loading ? 'PLAY. BOOK. ENJOY.' : organizationName}
               </span>
             </div>
 
@@ -49,7 +59,7 @@ export default function Home() {
                 className="btn-court inline-flex items-center justify-center gap-2 px-7 py-4 text-sm font-semibold shadow-lg"
               >
                 Book a Court
-                <span aria-hidden="true">→</span>
+                <span aria-hidden="true">?</span>
               </Link>
 
               <Link
@@ -184,12 +194,10 @@ export default function Home() {
             className="btn-court mt-9 inline-flex items-center gap-2 px-8 py-4 text-sm font-semibold"
           >
             Book a Court
-            <span aria-hidden="true">→</span>
+            <span aria-hidden="true">?</span>
           </Link>
         </div>
       </section>
-
-      
     </main>
   )
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { Court, Settings } from '../types/court'
 import type { TimeSlot } from '../types/availability'
@@ -9,7 +9,6 @@ import {
 } from '../services/courtService'
 
 import {
-  getPublicOrganizations,
   getAvailableSlots,
   generateBookingReference,
 } from '../services/availabilityService'
@@ -17,6 +16,7 @@ import {
 import { createBookingAtomic } from '../services/atomicBookingService'
 import { uploadPaymentProof } from '../services/paymentService'
 import { useAuth } from '../context/AuthContext'
+import { useOrganization } from '../context/OrganizationContext'
 
 const BOOKING_RULES = [
   'Payment is required to confirm your booking.',
@@ -199,7 +199,14 @@ export default function Booking() {
   const navigate = useNavigate()
   const { user } = useAuth()
 
-  const [organizationSlug, setOrganizationSlug] = useState('')
+  const {
+    organization,
+    loading: organizationLoading,
+    error: organizationError,
+  } = useOrganization()
+
+  const organizationSlug =
+    organization?.slug ?? ''
 
   const [courts, setCourts] = useState<Court[]>([])
   const [court, setCourt] = useState<Court | null>(null)
@@ -310,24 +317,17 @@ export default function Booking() {
         court.weekend_price_per_hour !== null
     )
 
-  useEffect(() => {
-    void getPublicOrganizations()
-      .then((rows) => {
-
-        if (rows.length === 1) {
-          setOrganizationSlug(rows[0].slug)
-        }
-      })
-      .catch((err) => {
-        setError(
-          err instanceof Error
-            ? err.message
-            : 'Failed to load organizations'
-        )
-      })
-  }, [])
 
   useEffect(() => {
+    if (organizationLoading) {
+      return
+    }
+
+    if (organizationError) {
+      setError(organizationError)
+      return
+    }
+
     if (!organizationSlug) {
       setCourts([])
       setCourt(null)
@@ -338,7 +338,11 @@ export default function Booking() {
     }
 
     void loadCourtAndSettings()
-  }, [organizationSlug])
+  }, [
+    organizationLoading,
+    organizationError,
+    organizationSlug,
+  ])
 
   useEffect(() => {
     if (
@@ -944,7 +948,7 @@ const bookedCount =
               {court && (
                 <div className="mt-1 flex flex-wrap items-center gap-2">
                   <p className="text-sm text-muted">
-                    ₱{bookingHourlyRate} / hour
+                    â‚±{bookingHourlyRate} / hour
                   </p>
 
                   {weekendRateActive && (
@@ -1053,7 +1057,7 @@ const bookedCount =
 
                       <div className="mt-1 flex flex-wrap items-center gap-2">
                         <p className="text-sm text-muted">
-                          ₱{itemWeekendRate} / hour
+                          â‚±{itemWeekendRate} / hour
                         </p>
 
                         {itemWeekendActive && (
@@ -1167,7 +1171,7 @@ const bookedCount =
                     className="flex h-12 w-9 shrink-0 items-center justify-center rounded-xl border border-line bg-paper text-xl text-muted transition-colors hover:border-court hover:text-ink disabled:cursor-not-allowed disabled:opacity-30 sm:w-10"
                     aria-label="Previous dates"
                   >
-                    ‹
+                    â€¹
                   </button>
 
                   {/* MOBILE DATES */}
@@ -1342,7 +1346,7 @@ const bookedCount =
                     className="flex h-12 w-9 shrink-0 items-center justify-center rounded-xl border border-line bg-paper text-xl text-muted transition-colors hover:border-court hover:text-ink disabled:cursor-not-allowed disabled:opacity-30 sm:w-10"
                     aria-label="Next dates"
                   >
-                    ›
+                    â€º
                   </button>
                 </div>
 
@@ -1360,7 +1364,7 @@ const bookedCount =
 
                   {weekendRateActive && (
                     <p className="mt-1 text-xs font-semibold text-court">
-                      Weekend pricing applies · ₱
+                      Weekend pricing applies Â· â‚±
                       {bookingHourlyRate} / hour
                     </p>
                   )}
@@ -1486,7 +1490,7 @@ const bookedCount =
                             {bookingDuration ===
                               '1' && (
                               <span className="text-court">
-                                ✓
+                                âœ“
                               </span>
                             )}
                           </div>
@@ -1521,7 +1525,7 @@ const bookedCount =
                             {bookingDuration ===
                               '6' && (
                               <span className="text-court">
-                                ✓
+                                âœ“
                               </span>
                             )}
                           </div>
@@ -1556,7 +1560,7 @@ const bookedCount =
                             {bookingDuration ===
                               'full' && (
                               <span className="text-court">
-                                ✓
+                                âœ“
                               </span>
                             )}
                           </div>
@@ -1728,7 +1732,7 @@ const bookedCount =
                                     : 'text-court')
                                 }
                               >
-                                ₱
+                                â‚±
                                 {bookingHourlyRate}
                               </span>
                             </button>
@@ -1932,7 +1936,7 @@ const bookedCount =
                           </p>
 
                           <p className="mt-1 text-xs text-muted">
-                            Pay ₱
+                            Pay â‚±
                             {getTotalPrice()}{' '}
                             now
                           </p>
@@ -1962,7 +1966,7 @@ const bookedCount =
                               settings?.deposit_percentage ??
                               50
                             }
-                            % deposit · ₱
+                            % deposit Â· â‚±
                             {Math.round(
                               (getTotalPrice() *
                                 (settings?.deposit_percentage ??
@@ -2018,7 +2022,7 @@ const bookedCount =
                             className="flex h-9 w-9 items-center justify-center rounded-full border border-line text-lg text-muted hover:text-ink"
                             aria-label="Close"
                           >
-                            ×
+                            Ã—
                           </button>
                         </div>
 
@@ -2167,7 +2171,7 @@ const bookedCount =
                                     </p>
 
                                     <p className="mt-1 text-xs text-muted">
-                                      Pay ₱
+                                      Pay â‚±
                                       {getTotalPrice()}{' '}
                                       now
                                     </p>
@@ -2176,7 +2180,7 @@ const bookedCount =
                                   {paymentType ===
                                     'full' && (
                                     <span className="text-court">
-                                      ✓
+                                      âœ“
                                     </span>
                                   )}
                                 </div>
@@ -2208,7 +2212,7 @@ const bookedCount =
                                         settings?.deposit_percentage ??
                                         50
                                       }
-                                      % deposit · ₱
+                                      % deposit Â· â‚±
                                       {Math.round(
                                         (getTotalPrice() *
                                           (settings?.deposit_percentage ??
@@ -2221,7 +2225,7 @@ const bookedCount =
                                   {paymentType ===
                                     'deposit' && (
                                     <span className="text-court">
-                                      ✓
+                                      âœ“
                                     </span>
                                   )}
                                 </div>
@@ -2248,7 +2252,7 @@ const bookedCount =
                             }}
                             className="btn-court w-full rounded-xl px-5 py-3.5 text-sm font-semibold"
                           >
-                            Continue →
+                            Continue â†’
                           </button>
                         </div>
                       </div>
@@ -2310,7 +2314,7 @@ const bookedCount =
                               ? '1 Hour'
                               : bookingDuration ===
                                   '6'
-                                ? '6 Hours · Half Day'
+                                ? '6 Hours Â· Half Day'
                                 : 'Full Day'}
                           </p>
                         </div>
@@ -2329,7 +2333,7 @@ const bookedCount =
                                     {formatTime(
                                       group.start
                                     )}{' '}
-                                    –{' '}
+                                    â€“{' '}
                                     {formatTime(
                                       group.end
                                     )}
@@ -2343,7 +2347,7 @@ const bookedCount =
                                       ? 's'
                                       : ''}
                                     {group.isSeparate
-                                      ? ' · Separate slot'
+                                      ? ' Â· Separate slot'
                                       : ''}
                                   </p>
                                 </div>
@@ -2400,7 +2404,7 @@ const bookedCount =
                           </span>
 
                           <span className="font-medium text-ink">
-                            ₱
+                            â‚±
                             {
                               bookingHourlyRate
                             }{' '}
@@ -2440,7 +2444,7 @@ const bookedCount =
                           </p>
 
                           <p className="mt-1 font-display text-3xl font-semibold text-ink">
-                            ₱
+                            â‚±
                             {getTotalPrice()}
                           </p>
                         </div>
@@ -2453,7 +2457,7 @@ const bookedCount =
                             </p>
 
                             <p className="font-semibold text-court">
-                              ₱
+                              â‚±
                               {getAmountDue()}
                             </p>
                           </div>
@@ -2467,7 +2471,7 @@ const bookedCount =
                         }
                         className="btn-court mt-5 w-full rounded-xl px-5 py-3.5 text-sm font-semibold transition-all hover:opacity-90"
                       >
-                        Continue to booking →
+                        Continue to booking â†’
                       </button>
                     </>
                   )}
@@ -2494,11 +2498,11 @@ const bookedCount =
                       (group) =>
                         `${formatTime(
                           group.start
-                        )}–${formatTime(
+                        )}â€“${formatTime(
                           group.end
                         )}`
                     )
-                    .join(' · ')}
+                    .join(' Â· ')}
                 </p>
 
                 <p className="text-xs text-muted">
@@ -2508,7 +2512,7 @@ const bookedCount =
                   1
                     ? 's'
                     : ''}{' '}
-                  · ₱
+                  Â· â‚±
                   {getTotalPrice()}
                 </p>
               </div>
@@ -2523,7 +2527,7 @@ const bookedCount =
                 }}
                 className="btn-court shrink-0 rounded-xl px-5 py-3 text-sm font-semibold"
               >
-                Continue →
+                Continue â†’
               </button>
             </div>
           </div>
@@ -2663,7 +2667,7 @@ const bookedCount =
               </h2>
 
               <p className="mt-1 text-sm text-muted">
-                Pay ₱
+                Pay â‚±
                 {getAmountDue()} via GCash, then upload your payment screenshot.
               </p>
             </div>
@@ -2789,7 +2793,7 @@ const bookedCount =
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
           <div className="w-full max-w-sm rounded-2xl border border-line bg-surface p-6 text-center">
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-court/15 text-2xl text-court">
-              ✓
+              âœ“
             </div>
 
             <h2 className="mb-2 font-display text-xl font-semibold text-ink">
@@ -2819,7 +2823,7 @@ const bookedCount =
                   aria-label="Copy booking reference"
                 >
                   {copied
-                    ? '✓ Copied!'
+                    ? 'âœ“ Copied!'
                     : 'Copy'}
                 </button>
               </div>
@@ -2844,6 +2848,9 @@ const bookedCount =
     </div>
   )
 }
+
+
+
 
 
 

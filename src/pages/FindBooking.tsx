@@ -1,10 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import type { Reservation } from '../types/availability'
+import { useOrganization } from '../context/OrganizationContext'
 import {
   getGuestReservationsByPhone,
   getReservationsByReference,
-  getPublicOrganizations,
-  type PublicOrganization,
   cancelReservation,
   canCancel,
 } from '../services/availabilityService'
@@ -33,8 +32,15 @@ export default function FindBooking() {
     useState<'phone' | 'reference'>('reference')
 
   const [query, setQuery] = useState('')
-  const [organizations, setOrganizations] = useState<PublicOrganization[]>([])
-  const [organizationSlug, setOrganizationSlug] = useState('')
+
+  const {
+    organization,
+    loading: organizationLoading,
+    error: organizationError,
+  } = useOrganization()
+
+  const organizationSlug =
+    organization?.slug ?? ''
 
   const [bookings, setBookings] =
     useState<BookingWithCourt[] | null>(null)
@@ -45,15 +51,6 @@ export default function FindBooking() {
 
   const [cancellingId, setCancellingId] =
     useState<string | null>(null)
-
-  useEffect(() => {
-    void getPublicOrganizations()
-      .then((rows) => {
-        setOrganizations(rows)
-        if (rows.length === 1) setOrganizationSlug(rows[0].slug)
-      })
-      .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load organizations'))
-  }, [])
 
   /* =========================================================
      HELPERS
@@ -400,6 +397,28 @@ export default function FindBooking() {
      RENDER
   ========================================================= */
 
+  if (organizationLoading) {
+    return (
+      <div className="mx-auto w-full max-w-2xl p-8 text-center text-muted">
+        Loading booking configuration...
+      </div>
+    )
+  }
+
+  if (organizationError) {
+    return (
+      <div className="mx-auto w-full max-w-2xl p-8 text-center">
+        <p className="font-medium text-ink">
+          Unable to load booking configuration
+        </p>
+
+        <p className="mt-1 text-sm text-muted">
+          {organizationError}
+        </p>
+      </div>
+    )
+  }
+
   return (
     <div className="mx-auto w-full max-w-2xl p-4 sm:p-6 md:p-8">
       {/* HEADER */}
@@ -456,27 +475,6 @@ export default function FindBooking() {
         </button>
       </div>
 
-      {/* ORGANIZATION */}
-      <div className="mb-4">
-        <label className="mb-1 block text-sm font-medium text-ink">Facility</label>
-        <select
-          value={organizationSlug}
-          onChange={(e) => {
-            setOrganizationSlug(e.target.value)
-            setBookings(null)
-            setError('')
-          }}
-          className="w-full rounded-md border border-line bg-surface px-3 py-2.5 text-ink outline-none focus:border-court"
-          required
-        >
-          <option value="">Select facility</option>
-          {organizations.map((organization) => (
-            <option key={organization.id} value={organization.slug}>
-              {organization.name}
-            </option>
-          ))}
-        </select>
-      </div>
 
       {/* SEARCH FORM */}
       <form
@@ -762,3 +760,6 @@ export default function FindBooking() {
     </div>
   )
 }
+
+
+
