@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabase'
+﻿import { supabase } from '../lib/supabase'
 
 export interface PublicOrganization {
   id: string
@@ -14,6 +14,12 @@ export interface OrganizationBranding {
   primary_color: string
   secondary_color: string
   accent_color: string
+  background_color: string
+  surface_color: string
+  surface_elevated_color: string
+  text_color: string
+  muted_text_color: string
+  line_color: string
   heading_font: string
   body_font: string
 }
@@ -76,3 +82,4 @@ export async function getPublicBranding(): Promise<OrganizationBranding> {
 
   return branding as OrganizationBranding
 }
+

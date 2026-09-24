@@ -1,9 +1,9 @@
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap');
+﻿@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap');
 @import "tailwindcss";
 
 /* =========================================================
-   ALEX XAMIE PICKLEBALL ZONE — GLOBAL DESIGN SYSTEM
-   Electric Lime × Deep Navy × Court Blue
+   ALEX XAMIE PICKLEBALL ZONE â€” GLOBAL DESIGN SYSTEM
+   Electric Lime Ã— Deep Navy Ã— Court Blue
    ========================================================= */
 
 @theme {
@@ -75,12 +75,12 @@ body {
   background:
     radial-gradient(
       circle at top right,
-      rgba(163, 219, 56, 0.08),
+      color-mix(in srgb, var(--color-court) 8%, transparent),
       transparent 30rem
     ),
     radial-gradient(
       circle at bottom left,
-      rgba(75, 142, 199, 0.08),
+      color-mix(in srgb, var(--color-court-accent) 8%, transparent),
       transparent 28rem
     ),
     var(--color-paper);
@@ -150,12 +150,12 @@ select {
     var(--color-court-dark) 100%
   );
 
-  color: #111111;
+  color: var(--color-paper);
 
-  border: 1px solid rgba(163, 219, 56, 0.45);
+  border: 1px solid color-mix(in srgb, var(--color-court) 45%, transparent);
 
   box-shadow:
-    0 8px 24px rgba(163, 219, 56, 0.14),
+    0 8px 24px color-mix(in srgb, var(--color-court) 14%, transparent),
     inset 0 1px 0 rgba(255, 255, 255, 0.3);
 
   transition:
@@ -167,12 +167,12 @@ select {
 .btn-court:hover {
   background: linear-gradient(
     135deg,
-    #8DC63F 0%,
-    #A3DB38 100%
+    var(--color-court-dark) 0%,
+    var(--color-court) 100%
   );
 
   box-shadow:
-    0 12px 30px rgba(163, 219, 56, 0.22),
+    0 12px 30px color-mix(in srgb, var(--color-court) 22%, transparent),
     inset 0 1px 0 rgba(255, 255, 255, 0.3);
 
   transform: translateY(-1px);
@@ -239,7 +239,7 @@ select {
   border-color: var(--color-court);
 
   box-shadow:
-    0 0 0 3px rgba(163, 219, 56, 0.12);
+    0 0 0 3px color-mix(in srgb, var(--color-court) 12%, transparent);
 }
 
 /* =========================================================
@@ -291,8 +291,8 @@ select {
 
   background: linear-gradient(
     135deg,
-    rgba(163, 219, 56, 0.16),
-    rgba(75, 142, 199, 0.08) 45%,
+    color-mix(in srgb, var(--color-court) 16%, transparent),
+    color-mix(in srgb, var(--color-court-accent) 8%, transparent) 45%,
     transparent 70%
   );
 
@@ -334,3 +334,5 @@ select {
     -webkit-tap-highlight-color: transparent;
   }
 }
+
+

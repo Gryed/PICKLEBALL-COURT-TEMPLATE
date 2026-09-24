@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react'
+﻿import { createContext, useContext, useEffect, useState } from 'react'
 import {
   getConfiguredOrganization,
   getPublicBranding,
@@ -23,6 +23,13 @@ function applyBranding(branding: OrganizationBranding) {
   root.style.setProperty('--color-court-dark', branding.accent_color)
   root.style.setProperty('--color-court-accent', branding.secondary_color)
 
+  root.style.setProperty('--color-paper', branding.background_color)
+  root.style.setProperty('--color-surface', branding.surface_color)
+  root.style.setProperty('--color-surface-elevated', branding.surface_elevated_color)
+  root.style.setProperty('--color-ink', branding.text_color)
+  root.style.setProperty('--color-muted', branding.muted_text_color)
+  root.style.setProperty('--color-line', branding.line_color)
+
   root.style.setProperty('--font-display', `"${branding.heading_font}", sans-serif`)
   root.style.setProperty('--font-body', `"${branding.body_font}", sans-serif`)
 }
@@ -33,6 +40,12 @@ function clearBranding() {
   root.style.removeProperty('--color-court')
   root.style.removeProperty('--color-court-dark')
   root.style.removeProperty('--color-court-accent')
+  root.style.removeProperty('--color-paper')
+  root.style.removeProperty('--color-surface')
+  root.style.removeProperty('--color-surface-elevated')
+  root.style.removeProperty('--color-ink')
+  root.style.removeProperty('--color-muted')
+  root.style.removeProperty('--color-line')
   root.style.removeProperty('--font-display')
   root.style.removeProperty('--font-body')
 }
@@ -118,3 +131,4 @@ export function useOrganization() {
 
   return context
 }
+
