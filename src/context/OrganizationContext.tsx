@@ -2,13 +2,16 @@
 import {
   getConfiguredOrganization,
   getPublicBranding,
+  getPublicLandingContent,
   type PublicOrganization,
   type OrganizationBranding,
+  type OrganizationLandingContent,
 } from '../services/organizationService'
 
 interface OrganizationContextValue {
   organization: PublicOrganization | null
   branding: OrganizationBranding | null
+  landingContent: OrganizationLandingContent | null
   loading: boolean
   error: string | null
 }
@@ -25,13 +28,22 @@ function applyBranding(branding: OrganizationBranding) {
 
   root.style.setProperty('--color-paper', branding.background_color)
   root.style.setProperty('--color-surface', branding.surface_color)
-  root.style.setProperty('--color-surface-elevated', branding.surface_elevated_color)
+  root.style.setProperty(
+    '--color-surface-elevated',
+    branding.surface_elevated_color
+  )
   root.style.setProperty('--color-ink', branding.text_color)
   root.style.setProperty('--color-muted', branding.muted_text_color)
   root.style.setProperty('--color-line', branding.line_color)
 
-  root.style.setProperty('--font-display', `"${branding.heading_font}", sans-serif`)
-  root.style.setProperty('--font-body', `"${branding.body_font}", sans-serif`)
+  root.style.setProperty(
+    '--font-display',
+    `"${branding.heading_font}", sans-serif`
+  )
+  root.style.setProperty(
+    '--font-body',
+    `"${branding.body_font}", sans-serif`
+  )
 }
 
 function clearBranding() {
@@ -61,6 +73,9 @@ export function OrganizationProvider({
   const [branding, setBranding] =
     useState<OrganizationBranding | null>(null)
 
+  const [landingContent, setLandingContent] =
+    useState<OrganizationLandingContent | null>(null)
+
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -72,16 +87,22 @@ export function OrganizationProvider({
         setLoading(true)
         setError(null)
 
-        const [resolvedOrganization, resolvedBranding] =
-          await Promise.all([
-            getConfiguredOrganization(),
-            getPublicBranding(),
-          ])
+        const [
+          resolvedOrganization,
+          resolvedBranding,
+          resolvedLandingContent,
+        ] = await Promise.all([
+          getConfiguredOrganization(),
+          getPublicBranding(),
+          getPublicLandingContent(),
+        ])
 
         if (cancelled) return
 
         setOrganization(resolvedOrganization)
         setBranding(resolvedBranding)
+        setLandingContent(resolvedLandingContent)
+
         applyBranding(resolvedBranding)
       } catch (err) {
         if (cancelled) return
@@ -111,6 +132,7 @@ export function OrganizationProvider({
       value={{
         organization,
         branding,
+        landingContent,
         loading,
         error,
       }}
@@ -131,4 +153,3 @@ export function useOrganization() {
 
   return context
 }
-

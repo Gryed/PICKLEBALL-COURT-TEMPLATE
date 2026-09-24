@@ -24,6 +24,33 @@ export interface OrganizationBranding {
   body_font: string
 }
 
+export interface OrganizationLandingContent {
+  organization_id: string
+  hero_content: {
+    eyebrow: string
+    title: string
+    description: string
+    primary_cta: string
+    secondary_cta: string
+  }
+  how_it_works: {
+    label: string
+    title: string
+    description: string
+    steps: Array<{
+      number: string
+      title: string
+      description: string
+    }>
+  }
+  final_cta: {
+    label: string
+    title: string
+    description: string
+    button: string
+  }
+}
+
 export function getConfiguredOrganizationSlug(): string {
   const slug = import.meta.env.VITE_ORGANIZATION_SLUG?.trim().toLowerCase()
 
@@ -83,3 +110,25 @@ export async function getPublicBranding(): Promise<OrganizationBranding> {
   return branding as OrganizationBranding
 }
 
+export async function getPublicLandingContent(): Promise<OrganizationLandingContent> {
+  const slug = getConfiguredOrganizationSlug()
+
+  const { data, error } = await supabase.rpc(
+    'get_public_landing_content',
+    {
+      p_organization_slug: slug,
+    }
+  )
+
+  if (error) throw error
+
+  const content = data?.[0]
+
+  if (!content) {
+    throw new Error(
+      `Landing content is not configured for organization "${slug}".`
+    )
+  }
+
+  return content as OrganizationLandingContent
+}
