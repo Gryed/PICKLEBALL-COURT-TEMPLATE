@@ -1,12 +1,16 @@
-
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
+import { useOrganization } from '../context/OrganizationContext'
 
 export default function Footer() {
   const { signIn } = useAuth()
   const navigate = useNavigate()
+  const { organization, loading: organizationLoading } = useOrganization()
+
+  const organizationName =
+    organization?.name ?? 'Pickleball Court'
 
   const [loginOpen, setLoginOpen] = useState(false)
   const [username, setUsername] = useState('')
@@ -98,7 +102,11 @@ export default function Footer() {
             {/* BRAND */}
             <div>
               <p className="font-display text-lg font-semibold tracking-tight text-ink">
-                <span className="text-court">ALEX XAMEI PICKLEBALL ZONE</span>
+                <span className="text-court">
+                  {organizationLoading
+                    ? 'PICKLEBALL COURT'
+                    : organizationName}
+                </span>
               </p>
 
               <p className="mt-2 max-w-sm text-xs leading-5 text-muted">
@@ -180,7 +188,9 @@ export default function Footer() {
           {/* COPYRIGHT */}
           <div className="flex flex-col gap-2 text-[10px] text-muted sm:flex-row sm:items-center sm:justify-between">
             <p>
-              © {new Date().getFullYear()} ALEX XAMEI PICKLEBALL ZONE. All rights reserved.
+              © {new Date().getFullYear()} {organizationLoading
+                ? 'Pickleball Court'
+                : organizationName}. All rights reserved.
             </p>
 
             <p>
@@ -227,7 +237,7 @@ export default function Footer() {
                 </h2>
 
                 <p className="mt-1 text-xs text-muted">
-                  Sign in to access the ALEX XAMEI PICKLEBALL ZONE admin panel.
+                  Sign in to access the {organizationName} admin panel.
                 </p>
               </div>
 

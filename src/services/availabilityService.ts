@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase'
+import { getPublicCourts } from './courtService'
 import type {
   Reservation,
   TimeSlot,
@@ -527,7 +528,8 @@ function generateTimeSlots(
 
 export async function getAvailableSlots(
   courtId: string,
-  date: string
+  date: string,
+  organizationSlug?: string
 ): Promise<TimeSlot[]> {
   const selectedDate =
     new Date(`${date}T00:00:00`)
@@ -545,23 +547,53 @@ export async function getAvailableSlots(
   const dayOfWeek =
     selectedDate.getDay()
 
-  const {
-    data: court,
-    error: courtError,
-  } = await supabase
-    .from('courts')
-    .select(
-      'id, name, is_24_hours'
-    )
-    .eq('id', courtId)
-    .single()
+  let court: {
+    id: string
+    name: string
+    is_24_hours: boolean
+  }
 
-  if (courtError) {
-    console.error(
-      'Error fetching court:',
-      courtError
+  if (organizationSlug) {
+    const publicCourts = await getPublicCourts(
+      organizationSlug
     )
-    throw courtError
+
+    const publicCourt = publicCourts.find(
+      (item) => item.id === courtId
+    )
+
+    if (!publicCourt) {
+      throw new Error(
+        'Selected court is not available for this organization.'
+      )
+    }
+
+    court = {
+      id: publicCourt.id,
+      name: publicCourt.name,
+      is_24_hours: publicCourt.is_24_hours,
+    }
+  } else {
+    const {
+      data: adminCourt,
+      error: courtError,
+    } = await supabase
+      .from('courts')
+      .select(
+        'id, name, is_24_hours'
+      )
+      .eq('id', courtId)
+      .single()
+
+    if (courtError) {
+      console.error(
+        'Error fetching court:',
+        courtError
+      )
+      throw courtError
+    }
+
+    court = adminCourt
   }
 
   const existingReservations =

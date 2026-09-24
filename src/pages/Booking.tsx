@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { Court, Settings } from '../types/court'
 import type { TimeSlot } from '../types/availability'
@@ -446,7 +446,8 @@ export default function Booking() {
       const data =
         await getAvailableSlots(
           courtId,
-          bookingDate
+          bookingDate,
+          organizationSlug
         )
 
       setSlots(data)
@@ -2848,14 +2849,3 @@ const bookedCount =
     </div>
   )
 }
-
-
-
-
-
-
-
-
-
-
-
