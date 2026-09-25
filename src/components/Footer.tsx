@@ -196,7 +196,7 @@ export default function Footer() {
             <p>
               Developed by{' '}
               <span className="font-medium text-court">
-                Gryed
+                COREvia Systems
               </span>
             </p>
           </div>
