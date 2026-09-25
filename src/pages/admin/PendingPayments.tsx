@@ -93,7 +93,7 @@ function formatDate(date: string) {
 }
 
 function formatCurrency(amount: number) {
-  return `â‚±${amount.toLocaleString('en-PH', {
+  return `₱${amount.toLocaleString('en-PH', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`
