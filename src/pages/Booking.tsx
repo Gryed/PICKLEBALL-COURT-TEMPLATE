@@ -1172,7 +1172,7 @@ const bookedCount =
                     className="flex h-12 w-9 shrink-0 items-center justify-center rounded-xl border border-line bg-paper text-xl text-muted transition-colors hover:border-court hover:text-ink disabled:cursor-not-allowed disabled:opacity-30 sm:w-10"
                     aria-label="Previous dates"
                   >
-                    â€¹
+                    {'\u2039'}
                   </button>
 
                   {/* MOBILE DATES */}
@@ -1347,7 +1347,7 @@ const bookedCount =
                     className="flex h-12 w-9 shrink-0 items-center justify-center rounded-xl border border-line bg-paper text-xl text-muted transition-colors hover:border-court hover:text-ink disabled:cursor-not-allowed disabled:opacity-30 sm:w-10"
                     aria-label="Next dates"
                   >
-                    â€º
+                    {'\u203A'}
                   </button>
                 </div>
 
@@ -2253,7 +2253,7 @@ const bookedCount =
                             }}
                             className="btn-court w-full rounded-xl px-5 py-3.5 text-sm font-semibold"
                           >
-                            Continue â†’
+                            Continue {'\u2192'}
                           </button>
                         </div>
                       </div>
@@ -2472,7 +2472,7 @@ const bookedCount =
                         }
                         className="btn-court mt-5 w-full rounded-xl px-5 py-3.5 text-sm font-semibold transition-all hover:opacity-90"
                       >
-                        Continue to booking â†’
+                        Continue to booking {'\u2192'}
                       </button>
                     </>
                   )}
@@ -2528,7 +2528,7 @@ const bookedCount =
                 }}
                 className="btn-court shrink-0 rounded-xl px-5 py-3 text-sm font-semibold"
               >
-                Continue â†’
+                Continue {'\u2192'}
               </button>
             </div>
           </div>
