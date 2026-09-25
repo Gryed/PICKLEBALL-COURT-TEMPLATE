@@ -16,8 +16,6 @@ export default function Navbar() {
   const organizationName =
     organization?.name ?? 'Pickleball Court'
 
-  const logoUrl =
-    branding?.logo_url ?? '/images/alexxamie-hero.jpg'
 
   const organizationParts = organizationName.split(' ')
   const displayName =
@@ -42,11 +40,22 @@ export default function Navbar() {
           to="/"
           className="flex shrink-0 items-center gap-2"
         >
-          <img
-            src={logoUrl}
-            alt={organizationName}
-            className="h-9 w-9 rounded-xl object-cover"
-          />
+          {branding?.logo_url ? (
+            <img
+              src={branding.logo_url}
+              alt={organizationName}
+              className="h-9 w-9 rounded-xl object-cover"
+            />
+          ) : (
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-court text-sm font-bold text-paper">
+              {organizationName
+                .split(' ')
+                .filter(Boolean)
+                .slice(0, 2)
+                .map((part) => part[0])
+                .join('')}
+            </div>
+          )}
 
           <div className="leading-tight">
             <p className="font-display text-sm font-bold tracking-tight text-ink sm:text-base">

@@ -36,8 +36,6 @@ export default function AdminNavbar() {
   const organizationName =
     organization?.name ?? 'Pickleball Court'
 
-  const logoUrl =
-    branding?.logo_url ?? '/images/alexxamie-hero.jpg'
 
   if (error) {
     console.error(
@@ -78,11 +76,22 @@ export default function AdminNavbar() {
             className="group flex shrink-0 items-center gap-2.5"
           >
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-court text-sm font-bold text-paper shadow-[0_0_20px_rgba(207,255,51,0.08)] transition group-hover:scale-105">
-              <img
-                src={logoUrl}
-                alt={organizationName}
-                className="h-full w-full object-cover"
-              />
+              {branding?.logo_url ? (
+                <img
+                  src={branding.logo_url}
+                  alt={organizationName}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <span className="text-sm font-bold text-paper">
+                  {organizationName
+                    .split(' ')
+                    .filter(Boolean)
+                    .slice(0, 2)
+                    .map((part) => part[0])
+                    .join('')}
+                </span>
+              )}
             </div>
 
             <div className="hidden sm:block">
