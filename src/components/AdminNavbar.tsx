@@ -6,6 +6,7 @@ import {
   useNavigate,
 } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useOrganization } from '../context/OrganizationContext'
 import NotificationBell from './NotificationBell'
 
 const LINKS = [
@@ -29,6 +30,21 @@ const LINKS = [
 
 export default function AdminNavbar() {
   const { user, signOut, username, platformRole } = useAuth()
+  const { organization, branding, loading, error } =
+    useOrganization()
+
+  const organizationName =
+    organization?.name ?? 'Pickleball Court'
+
+  const logoUrl =
+    branding?.logo_url ?? '/images/alexxamie-hero.jpg'
+
+  if (error) {
+    console.error(
+      'Organization configuration error:',
+      error,
+    )
+  }
 
   const navigate = useNavigate()
   const location = useLocation()
@@ -62,12 +78,16 @@ export default function AdminNavbar() {
             className="group flex shrink-0 items-center gap-2.5"
           >
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-court text-sm font-bold text-paper shadow-[0_0_20px_rgba(207,255,51,0.08)] transition group-hover:scale-105">
-              🏓
+              <img
+                src={logoUrl}
+                alt={organizationName}
+                className="h-full w-full object-cover"
+              />
             </div>
 
             <div className="hidden sm:block">
               <p className="font-display text-sm font-bold tracking-tight text-ink">
-                ALEX XAMEI PICKLEBALL ZONE
+                {loading ? 'Loading...' : organizationName}
               </p>
 
               <p className="text-[9px] font-medium uppercase tracking-[0.18em] text-muted">
