@@ -1,3 +1,4 @@
+import AdminFooter from '../../components/AdminFooter';
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { Court } from '../../types/court'
@@ -1006,11 +1007,7 @@ export default function OpenPlay() {
         )}
 
         {/* FOOTER */}
-        <footer className="py-6 text-center">
-          <p className="text-[10px] text-muted">
-            PickleReserve Admin • Open Play
-          </p>
-        </footer>
+        <AdminFooter section="Open Play" />
       </div>
 
       {/* CREATE / EDIT MODAL */}

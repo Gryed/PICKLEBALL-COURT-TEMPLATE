@@ -1,3 +1,4 @@
+import AdminFooter from '../../components/AdminFooter';
 
 import { useEffect, useState } from 'react'
 import type { Settings } from '../../types/court'
@@ -816,11 +817,7 @@ export default function PaymentSettings() {
 
         {/* FOOTER */}
 
-        <footer className="py-6 text-center">
-          <p className="text-[10px] text-muted">
-            PickleReserve Admin
-          </p>
-        </footer>
+        <AdminFooter />
       </div>
     </main>
   )

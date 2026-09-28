@@ -1,3 +1,4 @@
+import AdminFooter from '../../components/AdminFooter';
 
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
@@ -373,11 +374,7 @@ export default function Dashboard() {
         </section>
 
         {/* FOOTER NOTE */}
-        <footer className="py-6 text-center">
-          <p className="text-[10px] text-muted">
-            PickleReserve Admin
-          </p>
-        </footer>
+        <AdminFooter />
       </div>
     </main>
   )
