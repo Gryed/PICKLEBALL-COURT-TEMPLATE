@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
+import { useOrganization } from '../../context/OrganizationContext'
 
 interface Stats {
   totalCourts: number
@@ -100,6 +101,8 @@ const navItems = [
 ]
 
 export default function Dashboard() {
+  const { organization } = useOrganization()
+
   const [stats, setStats] = useState<Stats>({
     totalCourts: 0,
     todayBookings: 0,
@@ -111,12 +114,21 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    if (!organization) return
     loadStats()
-  }, [])
+  }, [organization])
 
   async function loadStats() {
     try {
       const today = new Date().toISOString().slice(0, 10)
+
+      const organizationId = organization?.id
+
+      if (!organizationId) {
+        throw new Error('No configured organization is available.')
+      }
+
+
 
       const [courtsRes, bookingsRes, pendingRes, openPlayTodayRes, openPlayPendingRes] =
         await Promise.all([
@@ -125,7 +137,8 @@ export default function Dashboard() {
             .select('id', {
               count: 'exact',
               head: true,
-            }),
+            })
+            .eq('organization_id', organizationId),
 
           supabase
             .from('reservations')
@@ -133,6 +146,7 @@ export default function Dashboard() {
               count: 'exact',
               head: true,
             })
+            .eq('organization_id', organizationId)
             .eq('date', today)
             .eq('status', 'confirmed'),
 
@@ -142,6 +156,7 @@ export default function Dashboard() {
               count: 'exact',
               head: true,
             })
+            .eq('organization_id', organizationId)
             .eq('payment_status', 'pending')
             .not('payment_proof_url', 'is', null),
 
@@ -151,6 +166,7 @@ export default function Dashboard() {
               count: 'exact',
               head: true,
             })
+            .eq('organization_id', organizationId)
             .eq('session_date', today)
             .in('status', ['open', 'closed']),
 
@@ -160,6 +176,7 @@ export default function Dashboard() {
               count: 'exact',
               head: true,
             })
+            .eq('organization_id', organizationId)
             .eq('status', 'pending'),
         ])
 
