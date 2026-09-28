@@ -22,6 +22,9 @@ export interface OrganizationBranding {
   line_color: string
   heading_font: string
   body_font: string
+  contact_url: string | null
+  faq_url: string | null
+  terms_url: string | null
 }
 
 export interface OrganizationLandingContent {

@@ -7,7 +7,11 @@ import { useOrganization } from '../context/OrganizationContext'
 export default function Footer() {
   const { signIn } = useAuth()
   const navigate = useNavigate()
-  const { organization, loading: organizationLoading } = useOrganization()
+  const {
+    organization,
+    branding,
+    loading: organizationLoading,
+  } = useOrganization()
 
   const organizationName =
     organization?.name ?? 'Pickleball Court'
@@ -152,32 +156,38 @@ export default function Footer() {
               </p>
 
               <div className="flex flex-col items-start gap-2 text-xs">
-                <a
-                  href="https://www.facebook.com/jelarjoychristian"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-muted transition-colors hover:text-court"
-                >
-                  Contact Us
-                </a>
+                {branding?.contact_url && (
+                  <a
+                    href={branding.contact_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-muted transition-colors hover:text-court"
+                  >
+                    Contact Us
+                  </a>
+                )}
 
-                <a
-                  href="https://pickleblisscourt.com/#"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-muted transition-colors hover:text-court"
-                >
-                  FAQs
-                </a>
+                {branding?.faq_url && (
+                  <a
+                    href={branding.faq_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-muted transition-colors hover:text-court"
+                  >
+                    FAQs
+                  </a>
+                )}
 
-                <a
-                  href="https://pickleblisscourt.com/#"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-muted transition-colors hover:text-court"
-                >
-                  Terms of Use
-                </a>
+                {branding?.terms_url && (
+                  <a
+                    href={branding.terms_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-muted transition-colors hover:text-court"
+                  >
+                    Terms of Use
+                  </a>
+                )}
               </div>
             </div>
           </div>
