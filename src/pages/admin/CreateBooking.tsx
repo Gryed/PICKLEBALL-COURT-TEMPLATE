@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useOrganization } from '../../context/OrganizationContext'
 import type { Court, Settings } from '../../types/court'
 import type { TimeSlot } from '../../types/availability'
 import {
@@ -109,6 +110,7 @@ function SectionCard({
 }
 
 export default function CreateBooking() {
+  const { organization } = useOrganization()
   const navigate = useNavigate()
 
   const [courts, setCourts] = useState<Court[]>([])
@@ -1400,7 +1402,7 @@ export default function CreateBooking() {
                   <div className="flex items-center justify-between gap-4">
                     <div>
                       <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-whiteblack/65">
-                        ALEX XAMEI PICKLEBALL ZONE
+                        {organization?.name ?? 'Pickleball Court'}
                       </p>
 
                       <h2 className="mt-1 font-display text-lg font-bold">
