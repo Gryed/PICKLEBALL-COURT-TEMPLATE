@@ -30,17 +30,33 @@ const LINKS = [
 
 export default function AdminNavbar() {
   const { user, signOut, username, platformRole } = useAuth()
-  const { organization, branding, loading, error } =
-    useOrganization()
+
+  const {
+    organization,
+    branding,
+    loading,
+    error,
+    adminOrganizations,
+    selectedAdminOrganization,
+    adminOrganizationLoading,
+    adminOrganizationError,
+    setSelectedAdminOrganization,
+  } = useOrganization()
 
   const organizationName =
     organization?.name ?? 'Pickleball Court'
-
 
   if (error) {
     console.error(
       'Organization configuration error:',
       error,
+    )
+  }
+
+  if (adminOrganizationError) {
+    console.error(
+      'Admin organization error:',
+      adminOrganizationError,
     )
   }
 
@@ -56,6 +72,12 @@ export default function AdminNavbar() {
 
   function closeMenu() {
     setMenuOpen(false)
+  }
+
+  function handleOrganizationChange(
+    event: React.ChangeEvent<HTMLSelectElement>,
+  ) {
+    setSelectedAdminOrganization(event.target.value)
   }
 
   return (
@@ -118,6 +140,7 @@ export default function AdminNavbar() {
                   Platform
                 </Link>
               )}
+
               {LINKS.map((link) => {
                 const isActive =
                   location.pathname === link.to
@@ -141,9 +164,44 @@ export default function AdminNavbar() {
           </div>
 
           {/* ===================================================
-              DESKTOP USER + NOTIFICATIONS
+              DESKTOP USER + ORGANIZATION + NOTIFICATIONS
           =================================================== */}
           <div className="hidden shrink-0 items-center gap-3 lg:flex">
+
+            {/* ORGANIZATION SELECTOR */}
+            {adminOrganizations.length > 1 && (
+              <div className="flex items-center gap-2">
+                <label
+                  htmlFor="admin-organization"
+                  className="sr-only"
+                >
+                  Active organization
+                </label>
+
+                <select
+                  id="admin-organization"
+                  value={
+                    selectedAdminOrganization?.organization_id ?? ''
+                  }
+                  onChange={handleOrganizationChange}
+                  disabled={adminOrganizationLoading}
+                  className="max-w-[220px] rounded-lg border border-line bg-surface px-3 py-2 text-xs font-medium text-ink outline-none transition focus:border-court/50 disabled:cursor-wait disabled:opacity-60"
+                >
+                  <option value="" disabled>
+                    Select organization
+                  </option>
+
+                  {adminOrganizations.map((adminOrganization) => (
+                    <option
+                      key={adminOrganization.organization_id}
+                      value={adminOrganization.organization_id}
+                    >
+                      {adminOrganization.organization_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             {/* NOTIFICATION BELL */}
             {user && (
@@ -204,6 +262,43 @@ export default function AdminNavbar() {
         ===================================================== */}
         {menuOpen && (
           <div className="border-t border-line py-3 lg:hidden">
+
+            {/* =================================================
+                MOBILE ORGANIZATION SELECTOR
+            ================================================= */}
+            {adminOrganizations.length > 1 && (
+              <div className="mb-3 rounded-xl border border-line bg-surface px-4 py-3">
+                <label
+                  htmlFor="mobile-admin-organization"
+                  className="mb-1.5 block text-[9px] font-semibold uppercase tracking-[0.16em] text-muted"
+                >
+                  Active Organization
+                </label>
+
+                <select
+                  id="mobile-admin-organization"
+                  value={
+                    selectedAdminOrganization?.organization_id ?? ''
+                  }
+                  onChange={handleOrganizationChange}
+                  disabled={adminOrganizationLoading}
+                  className="w-full rounded-lg border border-line bg-paper px-3 py-2.5 text-xs font-medium text-ink outline-none transition focus:border-court/50 disabled:cursor-wait disabled:opacity-60"
+                >
+                  <option value="" disabled>
+                    Select organization
+                  </option>
+
+                  {adminOrganizations.map((adminOrganization) => (
+                    <option
+                      key={adminOrganization.organization_id}
+                      value={adminOrganization.organization_id}
+                    >
+                      {adminOrganization.organization_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             {/* =================================================
                 MOBILE USER

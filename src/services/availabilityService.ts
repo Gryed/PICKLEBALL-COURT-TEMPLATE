@@ -1,5 +1,8 @@
 import { supabase } from '../lib/supabase'
 import { getPublicCourts } from './courtService'
+import {
+  getSelectedAdminOrganizationId,
+} from './organizationService'
 import type {
   Reservation,
   TimeSlot,
@@ -10,24 +13,31 @@ import type {
    OPERATING HOURS
 ========================================================= */
 
-async function getMyOrganizationId(): Promise<string> {
-  const { data, error } = await supabase.rpc('get_my_organization_context')
-  if (error) throw error
-  if (!data?.length) throw new Error('No active organization is assigned to this account.')
-  if (data.length > 1) throw new Error('Multiple active organizations are assigned. Organization selection is required.')
-  return data[0].organization_id
-}
+export async function getOperatingHours(): Promise<
+  OperatingHours[]
+> {
+  const organizationId =
+    await getSelectedAdminOrganizationId()
 
-export async function getOperatingHours(): Promise<OperatingHours[]> {
-  const organizationId = await getMyOrganizationId()
-  const { data, error } = await supabase
-    .from('organization_operating_hours')
-    .select('id, day_of_week, open_time, close_time, is_closed')
-    .eq('organization_id', organizationId)
-    .order('day_of_week', { ascending: true })
+  const { data, error } =
+    await supabase
+      .from('organization_operating_hours')
+      .select(
+        'id, day_of_week, open_time, close_time, is_closed'
+      )
+      .eq(
+        'organization_id',
+        organizationId
+      )
+      .order('day_of_week', {
+        ascending: true,
+      })
 
   if (error) {
-    console.error('Error fetching operating hours:', error)
+    console.error(
+      'Error fetching operating hours:',
+      error
+    )
     throw error
   }
 
@@ -38,17 +48,31 @@ export async function updateOperatingHours(
   dayOfWeek: number,
   updates: Partial<OperatingHours>
 ): Promise<OperatingHours> {
-  const organizationId = await getMyOrganizationId()
-  const { data, error } = await supabase
-    .from('organization_operating_hours')
-    .update(updates)
-    .eq('organization_id', organizationId)
-    .eq('day_of_week', dayOfWeek)
-    .select('id, day_of_week, open_time, close_time, is_closed')
-    .single()
+  const organizationId =
+    await getSelectedAdminOrganizationId()
+
+  const { data, error } =
+    await supabase
+      .from('organization_operating_hours')
+      .update(updates)
+      .eq(
+        'organization_id',
+        organizationId
+      )
+      .eq(
+        'day_of_week',
+        dayOfWeek
+      )
+      .select(
+        'id, day_of_week, open_time, close_time, is_closed'
+      )
+      .single()
 
   if (error) {
-    console.error('Error updating operating hours:', error)
+    console.error(
+      'Error updating operating hours:',
+      error
+    )
     throw error
   }
 
@@ -71,7 +95,9 @@ interface PublicReservationSlot {
   booking_date: string
   start_time: string
   end_time: string
-  payment_status: 'pending' | 'verified'
+  payment_status:
+    | 'pending'
+    | 'verified'
 }
 
 /* =========================================================
@@ -80,26 +106,39 @@ interface PublicReservationSlot {
 ========================================================= */
 
 export async function createReservation(
-  reservation: Omit<Reservation, 'id' | 'created_at'>
+  reservation: Omit<
+    Reservation,
+    'id' | 'created_at'
+  >
 ): Promise<Reservation> {
-  const { data, error } = await supabase.rpc(
-    'admin_create_booking',
-    {
-      p_court_id: reservation.court_id,
-      p_user_id: reservation.user_id,
-      p_guest_name: reservation.guest_name,
-      p_guest_phone: reservation.guest_phone,
-      p_date: reservation.date,
-      p_start_time: reservation.start_time,
-      p_end_time: reservation.end_time,
-      p_payment_type: reservation.payment_type,
-      p_amount_due: reservation.amount_due,
-      p_payment_proof_url:
-        reservation.payment_proof_url,
-      p_booking_reference:
-        reservation.booking_reference,
-    }
-  )
+  const { data, error } =
+    await supabase.rpc(
+      'admin_create_booking',
+      {
+        p_court_id:
+          reservation.court_id,
+        p_user_id:
+          reservation.user_id,
+        p_guest_name:
+          reservation.guest_name,
+        p_guest_phone:
+          reservation.guest_phone,
+        p_date:
+          reservation.date,
+        p_start_time:
+          reservation.start_time,
+        p_end_time:
+          reservation.end_time,
+        p_payment_type:
+          reservation.payment_type,
+        p_amount_due:
+          reservation.amount_due,
+        p_payment_proof_url:
+          reservation.payment_proof_url,
+        p_booking_reference:
+          reservation.booking_reference,
+      }
+    )
 
   if (error) {
     console.error(
@@ -116,13 +155,14 @@ export async function getReservationsForCourtAndDate(
   courtId: string,
   date: string
 ): Promise<PublicReservationSlot[]> {
-  const { data, error } = await supabase.rpc(
-    'get_public_court_availability',
-    {
-      p_court_id: courtId,
-      p_date: date,
-    }
-  )
+  const { data, error } =
+    await supabase.rpc(
+      'get_public_court_availability',
+      {
+        p_court_id: courtId,
+        p_date: date,
+      }
+    )
 
   if (error) {
     console.error(
@@ -155,13 +195,16 @@ export async function cancelReservation(
   reservationId: string,
   guestPhone?: string
 ): Promise<void> {
-  const { error } = await supabase.rpc(
-    'cancel_customer_reservation',
-    {
-      p_reservation_id: reservationId,
-      p_guest_phone: guestPhone ?? null,
-    }
-  )
+  const { error } =
+    await supabase.rpc(
+      'cancel_customer_reservation',
+      {
+        p_reservation_id:
+          reservationId,
+        p_guest_phone:
+          guestPhone ?? null,
+      }
+    )
 
   if (error) {
     console.error(
@@ -214,7 +257,8 @@ export async function cancelBooking(
 export async function verifyBookingPayment(
   bookingReference: string | null
 ): Promise<void> {
-  const reference = bookingReference?.trim()
+  const reference =
+    bookingReference?.trim()
 
   if (!reference) {
     throw new Error(
@@ -222,12 +266,14 @@ export async function verifyBookingPayment(
     )
   }
 
-  const { error } = await supabase.rpc(
-    'verify_booking_payment',
-    {
-      p_booking_reference: reference,
-    }
-  )
+  const { error } =
+    await supabase.rpc(
+      'verify_booking_payment',
+      {
+        p_booking_reference:
+          reference,
+      }
+    )
 
   if (error) {
     console.error(
@@ -245,7 +291,8 @@ export async function verifyBookingPayment(
 export async function rejectBookingPayment(
   bookingReference: string | null
 ): Promise<void> {
-  const reference = bookingReference?.trim()
+  const reference =
+    bookingReference?.trim()
 
   if (!reference) {
     throw new Error(
@@ -253,12 +300,14 @@ export async function rejectBookingPayment(
     )
   }
 
-  const { error } = await supabase.rpc(
-    'reject_booking_payment',
-    {
-      p_booking_reference: reference,
-    }
-  )
+  const { error } =
+    await supabase.rpc(
+      'reject_booking_payment',
+      {
+        p_booking_reference:
+          reference,
+      }
+    )
 
   if (error) {
     console.error(
@@ -276,18 +325,29 @@ export async function rejectBookingPayment(
 export async function getPendingPaymentsAdmin(): Promise<
   Reservation[]
 > {
-  const { data, error } = await supabase
-    .from('reservations')
-    .select(`
-      *,
-      courts (
-        name
+  const { data, error } =
+    await supabase
+      .from('reservations')
+      .select(`
+        *,
+        courts (
+          name
+        )
+      `)
+      .eq(
+        'status',
+        'confirmed'
       )
-    `)
-    .eq('status', 'confirmed')
-    .eq('payment_status', 'pending')
-    .order('date', { ascending: true })
-    .order('start_time', { ascending: true })
+      .eq(
+        'payment_status',
+        'pending'
+      )
+      .order('date', {
+        ascending: true,
+      })
+      .order('start_time', {
+        ascending: true,
+      })
 
   if (error) {
     console.error(
@@ -307,17 +367,25 @@ export async function getPendingPaymentsAdmin(): Promise<
 export async function getUserReservations(
   userId: string
 ): Promise<Reservation[]> {
-  const { data, error } = await supabase
-    .from('reservations')
-    .select(`
-      *,
-      courts (
-        name
+  const { data, error } =
+    await supabase
+      .from('reservations')
+      .select(`
+        *,
+        courts (
+          name
+        )
+      `)
+      .eq(
+        'user_id',
+        userId
       )
-    `)
-    .eq('user_id', userId)
-    .order('date', { ascending: false })
-    .order('start_time', { ascending: true })
+      .order('date', {
+        ascending: false,
+      })
+      .order('start_time', {
+        ascending: true,
+      })
 
   if (error) {
     console.error(
@@ -337,16 +405,21 @@ export async function getUserReservations(
 export async function getAllReservationsAdmin(): Promise<
   Reservation[]
 > {
-  const { data, error } = await supabase
-    .from('reservations')
-    .select(`
-      *,
-      courts (
-        name
-      )
-    `)
-    .order('date', { ascending: false })
-    .order('start_time', { ascending: true })
+  const { data, error } =
+    await supabase
+      .from('reservations')
+      .select(`
+        *,
+        courts (
+          name
+        )
+      `)
+      .order('date', {
+        ascending: false,
+      })
+      .order('start_time', {
+        ascending: true,
+      })
 
   if (error) {
     console.error(
@@ -366,9 +439,10 @@ export async function getAllReservationsAdmin(): Promise<
 export async function getAdminRescheduledBookingReferences(): Promise<
   string[]
 > {
-  const { data, error } = await supabase.rpc(
-    'get_admin_rescheduled_booking_references'
-  )
+  const { data, error } =
+    await supabase.rpc(
+      'get_admin_rescheduled_booking_references'
+    )
 
   if (error) {
     console.error(
@@ -381,9 +455,14 @@ export async function getAdminRescheduledBookingReferences(): Promise<
 
   return Array.isArray(data)
     ? data
-        .map((item) => item?.booking_reference)
+        .map(
+          (item) =>
+            item?.booking_reference
+        )
         .filter(
-          (value): value is string =>
+          (
+            value
+          ): value is string =>
             Boolean(value)
         )
     : []
@@ -396,13 +475,17 @@ export async function getAdminRescheduledBookingReferences(): Promise<
 export function canCancel(
   reservation: Reservation
 ): boolean {
-  if (reservation.status !== 'confirmed') {
+  if (
+    reservation.status !==
+    'confirmed'
+  ) {
     return false
   }
 
-  const bookingDateTime = new Date(
-    `${reservation.date}T${reservation.start_time}:00`
-  )
+  const bookingDateTime =
+    new Date(
+      `${reservation.date}T${reservation.start_time}:00`
+    )
 
   const now = new Date()
 
@@ -424,17 +507,23 @@ function timeToMinutes(
   const [hours, minutes] =
     time.split(':').map(Number)
 
-  return hours * 60 + minutes
+  return (
+    hours * 60 +
+    minutes
+  )
 }
 
 function minutesToTime(
   totalMinutes: number
 ): string {
   const normalizedMinutes =
-    totalMinutes % (24 * 60)
+    totalMinutes %
+    (24 * 60)
 
   const hours =
-    Math.floor(normalizedMinutes / 60)
+    Math.floor(
+      normalizedMinutes / 60
+    )
 
   const minutes =
     normalizedMinutes % 60
@@ -462,7 +551,8 @@ function generateTimeSlots(
     timeToMinutes(closeTime)
 
   if (
-    closeMinutes <= openMinutes &&
+    closeMinutes <=
+      openMinutes &&
     closeMinutes !== 1440
   ) {
     closeMinutes += 1440
@@ -489,8 +579,11 @@ function generateTimeSlots(
     const reservation =
       existingReservations.find(
         (item) =>
-          timeToMinutes(item.start_time) ===
-          current % (24 * 60)
+          timeToMinutes(
+            item.start_time
+          ) ===
+          current %
+            (24 * 60)
       )
 
     const isPending =
@@ -505,7 +598,8 @@ function generateTimeSlots(
       start_time: startTime,
       end_time: endTime,
 
-      available: !reservation,
+      available:
+        !reservation,
 
       status: reservation
         ? isPending
@@ -515,7 +609,8 @@ function generateTimeSlots(
             : 'available'
         : 'available',
 
-      bookedByName: undefined,
+      bookedByName:
+        undefined,
     })
   }
 
@@ -532,7 +627,9 @@ export async function getAvailableSlots(
   organizationSlug?: string
 ): Promise<TimeSlot[]> {
   const selectedDate =
-    new Date(`${date}T00:00:00`)
+    new Date(
+      `${date}T00:00:00`
+    )
 
   if (
     Number.isNaN(
@@ -553,14 +650,20 @@ export async function getAvailableSlots(
     is_24_hours: boolean
   }
 
+  /*
+   * Public booking flow.
+   */
   if (organizationSlug) {
-    const publicCourts = await getPublicCourts(
-      organizationSlug
-    )
+    const publicCourts =
+      await getPublicCourts(
+        organizationSlug
+      )
 
-    const publicCourt = publicCourts.find(
-      (item) => item.id === courtId
-    )
+    const publicCourt =
+      publicCourts.find(
+        (item) =>
+          item.id === courtId
+      )
 
     if (!publicCourt) {
       throw new Error(
@@ -571,9 +674,19 @@ export async function getAvailableSlots(
     court = {
       id: publicCourt.id,
       name: publicCourt.name,
-      is_24_hours: publicCourt.is_24_hours,
+      is_24_hours:
+        publicCourt.is_24_hours,
     }
   } else {
+    /*
+     * Admin flow.
+     *
+     * Resolve the selected organization
+     * and explicitly scope the court query.
+     */
+    const organizationId =
+      await getSelectedAdminOrganizationId()
+
     const {
       data: adminCourt,
       error: courtError,
@@ -582,7 +695,14 @@ export async function getAvailableSlots(
       .select(
         'id, name, is_24_hours'
       )
-      .eq('id', courtId)
+      .eq(
+        'id',
+        courtId
+      )
+      .eq(
+        'organization_id',
+        organizationId
+      )
       .single()
 
     if (courtError) {
@@ -621,12 +741,14 @@ export async function getAvailableSlots(
   const {
     data: operatingHourRows,
     error: operatingHourError,
-  } = await supabase.rpc('get_public_operating_hours_for_court', {
-    p_court_id: courtId,
-    p_day_of_week: dayOfWeek,
-  })
-
-  const operatingHour = operatingHourRows?.[0] ?? null
+  } = await supabase.rpc(
+    'get_public_operating_hours_for_court',
+    {
+      p_court_id: courtId,
+      p_day_of_week:
+        dayOfWeek,
+    }
+  )
 
   if (operatingHourError) {
     console.error(
@@ -635,6 +757,10 @@ export async function getAvailableSlots(
     )
     throw operatingHourError
   }
+
+  const operatingHour =
+    operatingHourRows?.[0] ??
+    null
 
   if (
     !operatingHour ||
@@ -678,18 +804,26 @@ function mapPublicBookingLookup(
     court_id: row.court_id,
     user_id: null,
     date: row.date,
-    start_time: row.start_time,
-    end_time: row.end_time,
-    status: row.status as Reservation['status'],
+    start_time:
+      row.start_time,
+    end_time:
+      row.end_time,
+    status:
+      row.status as Reservation['status'],
     payment_type:
       row.payment_type as Reservation['payment_type'],
-    amount_due: row.amount_due,
+    amount_due:
+      row.amount_due,
     payment_status:
       row.payment_status as Reservation['payment_status'],
-    payment_proof_url: null,
-    guest_name: row.guest_name,
-    guest_phone: row.guest_phone,
-    booking_reference: row.booking_reference,
+    payment_proof_url:
+      null,
+    guest_name:
+      row.guest_name,
+    guest_phone:
+      row.guest_phone,
+    booking_reference:
+      row.booking_reference,
     created_at: '',
   }
 }
@@ -704,10 +838,18 @@ export interface PublicOrganization {
   slug: string
 }
 
-export async function getPublicOrganizations(): Promise<PublicOrganization[]> {
-  const { data, error } = await supabase.rpc('get_public_organizations')
+export async function getPublicOrganizations(): Promise<
+  PublicOrganization[]
+> {
+  const { data, error } =
+    await supabase.rpc(
+      'get_public_organizations'
+    )
+
   if (error) throw error
-  return (data ?? []) as PublicOrganization[]
+
+  return (data ??
+    []) as PublicOrganization[]
 }
 
 /* =========================================================
@@ -722,8 +864,10 @@ export async function getGuestReservationsByPhone(
     await supabase.rpc(
       'get_public_booking_by_phone',
       {
-        p_organization_slug: organizationSlug,
-        p_guest_phone: phone,
+        p_organization_slug:
+          organizationSlug,
+        p_guest_phone:
+          phone,
       }
     )
 
@@ -736,8 +880,11 @@ export async function getGuestReservationsByPhone(
   }
 
   return (
-    (data ?? []) as PublicBookingLookupRow[]
-  ).map(mapPublicBookingLookup)
+    (data ??
+      []) as PublicBookingLookupRow[]
+  ).map(
+    mapPublicBookingLookup
+  )
 }
 
 /* =========================================================
@@ -752,8 +899,10 @@ export async function getReservationsByReference(
     await supabase.rpc(
       'get_public_booking_by_reference',
       {
-        p_organization_slug: organizationSlug,
-        p_booking_reference: reference,
+        p_organization_slug:
+          organizationSlug,
+        p_booking_reference:
+          reference,
       }
     )
 
@@ -766,19 +915,27 @@ export async function getReservationsByReference(
   }
 
   return (
-    (data ?? []) as PublicBookingLookupRow[]
-  ).map(mapPublicBookingLookup)
+    (data ??
+      []) as PublicBookingLookupRow[]
+  ).map(
+    mapPublicBookingLookup
+  )
 }
 
 /* =========================================================
    GENERATE BOOKING REFERENCE
 ========================================================= */
 
-export async function generateBookingReference(courtId: string): Promise<string> {
+export async function generateBookingReference(
+  courtId: string
+): Promise<string> {
   const { data, error } =
     await supabase.rpc(
       'generate_booking_reference',
-      { p_court_id: courtId },
+      {
+        p_court_id:
+          courtId,
+      }
     )
 
   if (error) {
@@ -826,8 +983,10 @@ export async function adminRescheduleBooking(
     await supabase.rpc(
       'admin_reschedule_booking',
       {
-        p_booking_reference: reference,
-        p_new_slots: newSlots,
+        p_booking_reference:
+          reference,
+        p_new_slots:
+          newSlots,
       }
     )
 

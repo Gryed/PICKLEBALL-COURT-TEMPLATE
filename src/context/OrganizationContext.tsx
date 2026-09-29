@@ -1,8 +1,18 @@
-﻿import { createContext, useContext, useEffect, useState } from 'react'
+﻿
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  type ReactNode,
+} from 'react'
+import { useAuth } from './AuthContext'
 import {
   getConfiguredOrganization,
+  getMyOrganizations,
   getPublicBranding,
   getPublicLandingContent,
+  type AdminOrganization,
   type PublicOrganization,
   type OrganizationBranding,
   type OrganizationLandingContent,
@@ -14,10 +24,20 @@ interface OrganizationContextValue {
   landingContent: OrganizationLandingContent | null
   loading: boolean
   error: string | null
+
+  adminOrganizations: AdminOrganization[]
+  selectedAdminOrganization: AdminOrganization | null
+  adminOrganizationLoading: boolean
+  adminOrganizationError: string | null
+  setSelectedAdminOrganization: (organizationId: string) => void
 }
 
-const OrganizationContext =
-  createContext<OrganizationContextValue | undefined>(undefined)
+const OrganizationContext = createContext<
+  OrganizationContextValue | undefined
+>(undefined)
+
+const SELECTED_ADMIN_ORGANIZATION_KEY =
+  'picklereserve.selectedAdminOrganizationId'
 
 function applyBranding(branding: OrganizationBranding) {
   const root = document.documentElement
@@ -25,7 +45,6 @@ function applyBranding(branding: OrganizationBranding) {
   root.style.setProperty('--color-court', branding.primary_color)
   root.style.setProperty('--color-court-dark', branding.accent_color)
   root.style.setProperty('--color-court-accent', branding.secondary_color)
-
   root.style.setProperty('--color-paper', branding.background_color)
   root.style.setProperty('--color-surface', branding.surface_color)
   root.style.setProperty(
@@ -35,7 +54,6 @@ function applyBranding(branding: OrganizationBranding) {
   root.style.setProperty('--color-ink', branding.text_color)
   root.style.setProperty('--color-muted', branding.muted_text_color)
   root.style.setProperty('--color-line', branding.line_color)
-
   root.style.setProperty(
     '--font-display',
     `"${branding.heading_font}", sans-serif`
@@ -65,19 +83,28 @@ function clearBranding() {
 export function OrganizationProvider({
   children,
 }: {
-  children: React.ReactNode
+  children: ReactNode
 }) {
+  const { user, loading: authLoading } = useAuth()
+
   const [organization, setOrganization] =
     useState<PublicOrganization | null>(null)
-
   const [branding, setBranding] =
     useState<OrganizationBranding | null>(null)
-
   const [landingContent, setLandingContent] =
     useState<OrganizationLandingContent | null>(null)
-
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  const [adminOrganizations, setAdminOrganizations] = useState<
+    AdminOrganization[]
+  >([])
+  const [selectedAdminOrganization, setSelectedAdminOrganization] =
+    useState<AdminOrganization | null>(null)
+  const [adminOrganizationLoading, setAdminOrganizationLoading] =
+    useState(true)
+  const [adminOrganizationError, setAdminOrganizationError] =
+    useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -127,6 +154,106 @@ export function OrganizationProvider({
     }
   }, [])
 
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadAdminOrganizations() {
+      if (authLoading) return
+
+      if (!user) {
+        setAdminOrganizations([])
+        setSelectedAdminOrganization(null)
+        setAdminOrganizationError(null)
+        setAdminOrganizationLoading(false)
+        return
+      }
+
+      try {
+        setAdminOrganizationLoading(true)
+        setAdminOrganizationError(null)
+
+        const organizations = await getMyOrganizations()
+
+        if (cancelled) return
+
+        setAdminOrganizations(organizations)
+
+        if (organizations.length === 0) {
+          setSelectedAdminOrganization(null)
+          return
+        }
+
+        const storedOrganizationId = window.localStorage.getItem(
+          SELECTED_ADMIN_ORGANIZATION_KEY
+        )
+
+        const storedOrganization = organizations.find(
+          (item) => item.organization_id === storedOrganizationId
+        )
+
+        if (storedOrganization) {
+          setSelectedAdminOrganization(storedOrganization)
+          return
+        }
+
+        if (organizations.length === 1) {
+          const onlyOrganization = organizations[0]
+
+          setSelectedAdminOrganization(onlyOrganization)
+
+          window.localStorage.setItem(
+            SELECTED_ADMIN_ORGANIZATION_KEY,
+            onlyOrganization.organization_id
+          )
+
+          return
+        }
+
+        setSelectedAdminOrganization(null)
+        window.localStorage.removeItem(
+          SELECTED_ADMIN_ORGANIZATION_KEY
+        )
+      } catch (err) {
+        if (cancelled) return
+
+        setAdminOrganizations([])
+        setSelectedAdminOrganization(null)
+        setAdminOrganizationError(
+          err instanceof Error
+            ? err.message
+            : 'Failed to load assigned organizations.'
+        )
+      } finally {
+        if (!cancelled) {
+          setAdminOrganizationLoading(false)
+        }
+      }
+    }
+
+    void loadAdminOrganizations()
+
+    return () => {
+      cancelled = true
+    }
+  }, [user, authLoading])
+
+  function handleSetSelectedAdminOrganization(organizationId: string) {
+    const selectedOrganization = adminOrganizations.find(
+      (item) => item.organization_id === organizationId
+    )
+
+    if (!selectedOrganization) {
+      return
+    }
+
+    setSelectedAdminOrganization(selectedOrganization)
+
+    window.localStorage.setItem(
+      SELECTED_ADMIN_ORGANIZATION_KEY,
+      selectedOrganization.organization_id
+    )
+  }
+
   return (
     <OrganizationContext.Provider
       value={{
@@ -135,6 +262,12 @@ export function OrganizationProvider({
         landingContent,
         loading,
         error,
+        adminOrganizations,
+        selectedAdminOrganization,
+        adminOrganizationLoading,
+        adminOrganizationError,
+        setSelectedAdminOrganization:
+          handleSetSelectedAdminOrganization,
       }}
     >
       {children}
@@ -145,9 +278,9 @@ export function OrganizationProvider({
 export function useOrganization() {
   const context = useContext(OrganizationContext)
 
-  if (!context) {
+  if (context === undefined) {
     throw new Error(
-      'useOrganization must be used inside OrganizationProvider.'
+      'useOrganization must be used within an OrganizationProvider'
     )
   }
 
