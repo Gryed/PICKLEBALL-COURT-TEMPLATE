@@ -13,6 +13,77 @@ export interface AdminOrganization {
   organization_status: string
 }
 
+export interface SuperAdminOrganizationSettings {
+  organization_id: string
+  show_court_type: boolean
+  payment_mode: 'manual' | 'api'
+  gcash_qr_url: string | null
+  gcash_number: string | null
+  gcash_name: string | null
+  deposit_percentage: number
+  booking_horizon_days: number
+  booking_reference_prefix: string
+  created_at: string
+  updated_at: string
+}
+
+export interface SuperAdminOrganizationBranding {
+  organization_id: string
+  logo_url: string | null
+  favicon_url: string | null
+  hero_image_url: string | null
+  primary_color: string
+  secondary_color: string
+  accent_color: string
+  background_color: string
+  surface_color: string
+  surface_elevated_color: string
+  text_color: string
+  muted_text_color: string
+  line_color: string
+  heading_font: string
+  body_font: string
+  contact_url: string | null
+  faq_url: string | null
+  terms_url: string | null
+  primary_button_color: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface SuperAdminOrganizationLandingContent {
+  organization_id: string
+
+  hero_content: {
+    eyebrow: string
+    title: string
+    description: string
+    primary_cta: string
+    secondary_cta: string
+  }
+
+  how_it_works: {
+    title: string
+    label: string
+    description: string
+    steps: Array<{
+      number: string
+      title: string
+      description: string
+    }>
+  }
+
+  final_cta: {
+    label: string
+    title: string
+    button: string
+    description: string
+  }
+
+  created_at: string
+  updated_at: string
+}
+
 export interface OrganizationBranding {
   organization_id: string
   logo_url: string | null
@@ -232,4 +303,138 @@ export async function getSelectedAdminOrganizationId(): Promise<string> {
   }
 
   return selectedOrganization.organization_id
+}
+
+export async function getSuperAdminOrganizationSettings(
+  organizationId: string
+): Promise<SuperAdminOrganizationSettings> {
+  const { data, error } = await supabase.rpc(
+    'super_admin_get_organization_settings',
+    {
+      p_organization_id: organizationId,
+    }
+  )
+
+  if (error) throw error
+
+  return data as SuperAdminOrganizationSettings
+}
+
+export async function getSuperAdminOrganizationBranding(
+  organizationId: string
+): Promise<SuperAdminOrganizationBranding> {
+  const { data, error } = await supabase.rpc(
+    'super_admin_get_organization_branding',
+    {
+      p_organization_id: organizationId,
+    }
+  )
+
+  if (error) throw error
+
+  return data as SuperAdminOrganizationBranding
+}
+
+export async function getSuperAdminOrganizationLandingContent(
+  organizationId: string
+): Promise<SuperAdminOrganizationLandingContent> {
+  const { data, error } = await supabase.rpc(
+    'super_admin_get_organization_landing_content',
+    {
+      p_organization_id: organizationId,
+    }
+  )
+
+  if (error) throw error
+
+  return data as SuperAdminOrganizationLandingContent
+}
+
+export async function updateSuperAdminOrganizationSettings(
+  organizationId: string,
+  settings: Omit<
+    SuperAdminOrganizationSettings,
+    'organization_id' | 'created_at' | 'updated_at'
+  >
+): Promise<SuperAdminOrganizationSettings> {
+  const { data, error } = await supabase.rpc(
+    'super_admin_update_organization_settings',
+    {
+      p_organization_id: organizationId,
+      p_show_court_type: settings.show_court_type,
+      p_payment_mode: settings.payment_mode,
+      p_gcash_qr_url: settings.gcash_qr_url,
+      p_gcash_number: settings.gcash_number,
+      p_gcash_name: settings.gcash_name,
+      p_deposit_percentage: settings.deposit_percentage,
+      p_booking_horizon_days: settings.booking_horizon_days,
+      p_booking_reference_prefix:
+        settings.booking_reference_prefix,
+    }
+  )
+
+  if (error) throw error
+
+  return data as SuperAdminOrganizationSettings
+}
+
+export async function updateSuperAdminOrganizationBranding(
+  organizationId: string,
+  branding: Omit<
+    SuperAdminOrganizationBranding,
+    'organization_id' | 'created_at' | 'updated_at'
+  >
+): Promise<SuperAdminOrganizationBranding> {
+  const { data, error } = await supabase.rpc(
+    'super_admin_update_organization_branding',
+    {
+      p_organization_id: organizationId,
+      p_logo_url: branding.logo_url,
+      p_favicon_url: branding.favicon_url,
+      p_hero_image_url: branding.hero_image_url,
+      p_primary_color: branding.primary_color,
+      p_secondary_color: branding.secondary_color,
+      p_accent_color: branding.accent_color,
+      p_background_color: branding.background_color,
+      p_surface_color: branding.surface_color,
+      p_surface_elevated_color:
+        branding.surface_elevated_color,
+      p_text_color: branding.text_color,
+      p_muted_text_color: branding.muted_text_color,
+      p_line_color: branding.line_color,
+      p_heading_font: branding.heading_font,
+      p_body_font: branding.body_font,
+      p_contact_url: branding.contact_url,
+      p_faq_url: branding.faq_url,
+      p_terms_url: branding.terms_url,
+      p_primary_button_color:
+        branding.primary_button_color,
+    }
+  )
+
+  if (error) throw error
+
+  return data as SuperAdminOrganizationBranding
+}
+
+export async function updateSuperAdminOrganizationLandingContent(
+  organizationId: string,
+  content: Omit<
+    SuperAdminOrganizationLandingContent,
+    'organization_id' | 'created_at' | 'updated_at'
+  >
+): Promise<SuperAdminOrganizationLandingContent> {
+  const { data, error } = await supabase.rpc(
+    'super_admin_update_organization_landing_content',
+    {
+      p_organization_id: organizationId,
+      p_hero_content: content.hero_content,
+      p_how_it_works: content.how_it_works,
+      p_final_cta: content.final_cta,
+    }
+  )
+
+  if (error) throw error
+
+  return data as SuperAdminOrganizationLandingContent
 }

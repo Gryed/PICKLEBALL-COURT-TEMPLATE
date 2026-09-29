@@ -26,6 +26,7 @@ import OpenPlayDetails from './pages/OpenPlayDetails'
 import SuperAdminDashboard from './pages/SuperAdminDashboard'
 import SuperAdminOrganizations from './pages/SuperAdminOrganizations'
 import { OrganizationProvider } from './context/OrganizationContext'
+import SuperAdminOrganizationConfiguration from './pages/SuperAdminOrganizationConfiguration'
 
 function PublicLayout({
   children,
@@ -128,6 +129,15 @@ function App() {
             element={
               <SuperAdminRoute>
                 <SuperAdminOrganizations />
+              </SuperAdminRoute>
+            }
+          />
+
+          <Route
+            path="/super-admin/organizations/:id/configuration"
+            element={
+              <SuperAdminRoute>
+                <SuperAdminOrganizationConfiguration />
               </SuperAdminRoute>
             }
           />
