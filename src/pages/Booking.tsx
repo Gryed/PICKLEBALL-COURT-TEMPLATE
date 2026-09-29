@@ -1491,7 +1491,7 @@ const bookedCount =
                             {bookingDuration ===
                               '1' && (
                               <span className="text-court">
-                                âœ“
+                                {'\u2713'}
                               </span>
                             )}
                           </div>
@@ -1526,7 +1526,7 @@ const bookedCount =
                             {bookingDuration ===
                               '6' && (
                               <span className="text-court">
-                                âœ“
+                                {'\u2713'}
                               </span>
                             )}
                           </div>
@@ -1561,7 +1561,7 @@ const bookedCount =
                             {bookingDuration ===
                               'full' && (
                               <span className="text-court">
-                                âœ“
+                                {'\u2713'}
                               </span>
                             )}
                           </div>
@@ -2023,7 +2023,7 @@ const bookedCount =
                             className="flex h-9 w-9 items-center justify-center rounded-full border border-line text-lg text-muted hover:text-ink"
                             aria-label="Close"
                           >
-                            Ã—
+                            {'\u00D7'}
                           </button>
                         </div>
 
@@ -2181,7 +2181,7 @@ const bookedCount =
                                   {paymentType ===
                                     'full' && (
                                     <span className="text-court">
-                                      âœ“
+                                      {'\u2713'}
                                     </span>
                                   )}
                                 </div>
@@ -2226,7 +2226,7 @@ const bookedCount =
                                   {paymentType ===
                                     'deposit' && (
                                     <span className="text-court">
-                                      âœ“
+                                      {'\u2713'}
                                     </span>
                                   )}
                                 </div>
@@ -2334,7 +2334,7 @@ const bookedCount =
                                     {formatTime(
                                       group.start
                                     )}{' '}
-                                    â€“{' '}
+                                    {'\u2013'}{' '}
                                     {formatTime(
                                       group.end
                                     )}
@@ -2499,7 +2499,7 @@ const bookedCount =
                       (group) =>
                         `${formatTime(
                           group.start
-                        )}â€“${formatTime(
+                        )}{'\u2013'}${formatTime(
                           group.end
                         )}`
                     )
@@ -2794,7 +2794,7 @@ const bookedCount =
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
           <div className="w-full max-w-sm rounded-2xl border border-line bg-surface p-6 text-center">
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-court/15 text-2xl text-court">
-              âœ“
+              {'\u2713'}
             </div>
 
             <h2 className="mb-2 font-display text-xl font-semibold text-ink">
@@ -2824,7 +2824,7 @@ const bookedCount =
                   aria-label="Copy booking reference"
                 >
                   {copied
-                    ? 'âœ“ Copied!'
+                    ? '\u2713 Copied!'
                     : 'Copy'}
                 </button>
               </div>

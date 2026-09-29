@@ -505,7 +505,7 @@ export default function PendingPayments() {
         >
           {loading
             ? 'Refreshing...'
-            : 'â†» Refresh'}
+            : '\u21BB Refresh'}
         </button>
       </div>
 
@@ -552,7 +552,7 @@ export default function PendingPayments() {
                   className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md px-2 py-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
                   aria-label="Clear search"
                 >
-                  âœ•
+                  {'\u2715'}
                 </button>
               )}
             </div>
@@ -669,13 +669,13 @@ export default function PendingPayments() {
       )}
 
       {/* ===================================================
-          EMPTY â€” NO PAYMENTS
+          EMPTY {'\u2014'} NO PAYMENTS
       =================================================== */}
 
       {bookings.length === 0 && (
         <div className="rounded-xl border border-dashed border-gray-300 bg-white p-10 text-center">
           <div className="text-4xl">
-            âœ…
+            {'\u2705'}
           </div>
 
           <h2 className="mt-3 text-lg font-semibold text-gray-900">
@@ -698,7 +698,7 @@ export default function PendingPayments() {
       )}
 
       {/* ===================================================
-          EMPTY â€” SEARCH RESULT
+          EMPTY {'\u2014'} SEARCH RESULT
       =================================================== */}
 
       {bookings.length > 0 &&
@@ -770,7 +770,7 @@ export default function PendingPayments() {
                         </span>
 
                         <span className="inline-flex items-center rounded-full bg-yellow-100 px-3 py-1 text-xs font-semibold text-yellow-700">
-                          â³ Pending
+                          {'\u23F3'} Pending
                         </span>
                       </div>
 
@@ -871,7 +871,7 @@ export default function PendingPayments() {
                       {formatTime(
                         booking.start_time
                       )}{' '}
-                      â€“{' '}
+                      {'\u2013'}{' '}
                       {formatTime(
                         booking.end_time
                       )}
@@ -938,7 +938,7 @@ export default function PendingPayments() {
                 {!paymentProof && (
                   <div className="border-t border-gray-100 px-5 py-4">
                     <div className="rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-700">
-                      âš  No payment proof has been uploaded
+                      {'\u26A0'} No payment proof has been uploaded
                       for this booking.
                     </div>
                   </div>
@@ -973,7 +973,7 @@ export default function PendingPayments() {
                     }
                     className="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-green-700"
                   >
-                    âœ“ Verify Payment
+                    {'\u2713'} Verify Payment
                   </button>
 
                   <button
@@ -986,7 +986,7 @@ export default function PendingPayments() {
                     }
                     className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700"
                   >
-                    âœ• Reject Payment
+                    {'\u2715'} Reject Payment
                   </button>
                 </div>
               </div>
@@ -1019,7 +1019,7 @@ export default function PendingPayments() {
               }
               className="absolute right-2 top-2 z-10 rounded-full bg-black/70 px-3 py-2 text-white hover:bg-black"
             >
-              âœ•
+              {'\u2715'}
             </button>
 
             <img
@@ -1052,8 +1052,8 @@ export default function PendingPayments() {
                 <span className="text-xl">
                   {actionTarget.action ===
                   'verify'
-                    ? 'âœ“'
-                    : 'âœ•'}
+                    ? '\u2713'
+                    : '\u2715'}
                 </span>
               </div>
 
@@ -1108,7 +1108,7 @@ export default function PendingPayments() {
                     actionTarget.booking
                       .start_time
                   )}{' '}
-                  â€“{' '}
+                  {'\u2013'}{' '}
                   {formatTime(
                     actionTarget.booking
                       .end_time
