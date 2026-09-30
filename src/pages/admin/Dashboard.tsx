@@ -1,4 +1,4 @@
-import AdminFooter from '../../components/AdminFooter';
+import AdminFooter from '../../components/AdminFooter'
 
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
@@ -102,7 +102,13 @@ const navItems = [
 ]
 
 export default function Dashboard() {
-  const { organization } = useOrganization()
+  const {
+    selectedAdminOrganization,
+    adminOrganizations,
+    adminOrganizationLoading,
+    adminOrganizationError,
+    setSelectedAdminOrganization,
+  } = useOrganization()
 
   const [stats, setStats] = useState<Stats>({
     totalCourts: 0,
@@ -114,72 +120,64 @@ export default function Dashboard() {
 
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    if (!organization) return
-    loadStats()
-  }, [organization])
-
-  async function loadStats() {
+  async function loadStats(organizationId: string) {
     try {
       const today = new Date().toISOString().slice(0, 10)
 
-      const organizationId = organization?.id
+      const [
+        courtsRes,
+        bookingsRes,
+        pendingRes,
+        openPlayTodayRes,
+        openPlayPendingRes,
+      ] = await Promise.all([
+        supabase
+          .from('courts')
+          .select('id', {
+            count: 'exact',
+            head: true,
+          })
+          .eq('organization_id', organizationId),
 
-      if (!organizationId) {
-        throw new Error('No configured organization is available.')
-      }
+        supabase
+          .from('reservations')
+          .select('id', {
+            count: 'exact',
+            head: true,
+          })
+          .eq('organization_id', organizationId)
+          .eq('date', today)
+          .eq('status', 'confirmed'),
 
+        supabase
+          .from('reservations')
+          .select('id', {
+            count: 'exact',
+            head: true,
+          })
+          .eq('organization_id', organizationId)
+          .eq('payment_status', 'pending')
+          .not('payment_proof_url', 'is', null),
 
+        supabase
+          .from('open_play_sessions')
+          .select('id', {
+            count: 'exact',
+            head: true,
+          })
+          .eq('organization_id', organizationId)
+          .eq('session_date', today)
+          .in('status', ['open', 'closed']),
 
-      const [courtsRes, bookingsRes, pendingRes, openPlayTodayRes, openPlayPendingRes] =
-        await Promise.all([
-          supabase
-            .from('courts')
-            .select('id', {
-              count: 'exact',
-              head: true,
-            })
-            .eq('organization_id', organizationId),
-
-          supabase
-            .from('reservations')
-            .select('id', {
-              count: 'exact',
-              head: true,
-            })
-            .eq('organization_id', organizationId)
-            .eq('date', today)
-            .eq('status', 'confirmed'),
-
-          supabase
-            .from('reservations')
-            .select('id', {
-              count: 'exact',
-              head: true,
-            })
-            .eq('organization_id', organizationId)
-            .eq('payment_status', 'pending')
-            .not('payment_proof_url', 'is', null),
-
-          supabase
-            .from('open_play_sessions')
-            .select('id', {
-              count: 'exact',
-              head: true,
-            })
-            .eq('organization_id', organizationId)
-            .eq('session_date', today)
-            .in('status', ['open', 'closed']),
-
-          supabase
-            .from('open_play_participants')
-            .select('id', {
-              count: 'exact',
-              head: true,
-            })
-            .eq('organization_id', organizationId)
-            .eq('status', 'pending'),
-        ])
+        supabase
+          .from('open_play_participants')
+          .select('id', {
+            count: 'exact',
+            head: true,
+          })
+          .eq('organization_id', organizationId)
+          .eq('status', 'pending'),
+      ])
 
       setStats({
         totalCourts: courtsRes.count ?? 0,
@@ -193,6 +191,22 @@ export default function Dashboard() {
     } finally {
       setLoading(false)
     }
+  }
+
+    useEffect(() => {
+    if (!selectedAdminOrganization) {
+      return
+    }
+
+    void loadStats(
+      selectedAdminOrganization.organization_id,
+    )
+  }, [selectedAdminOrganization])
+
+  function handleOrganizationChange(
+    event: React.ChangeEvent<HTMLSelectElement>,
+  ) {
+    setSelectedAdminOrganization(event.target.value)
   }
 
   return (
@@ -217,6 +231,55 @@ export default function Dashboard() {
                 Manage your courts, reservations, payments,
                 and booking operations.
               </p>
+
+              {/* ACTIVE ORGANIZATION */}
+              {adminOrganizations.length > 1 && (
+                <div className="mt-5 max-w-md">
+                  <label
+                    htmlFor="dashboard-admin-organization"
+                    className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.14em] text-muted"
+                  >
+                    Active Organization
+                  </label>
+
+                  <select
+                    id="dashboard-admin-organization"
+                    value={
+                      selectedAdminOrganization?.organization_id ?? ''
+                    }
+                    onChange={handleOrganizationChange}
+                    disabled={adminOrganizationLoading}
+                    className="w-full rounded-xl border border-line bg-surface px-4 py-3 text-sm font-medium text-ink outline-none transition focus:border-court/50 disabled:cursor-wait disabled:opacity-60"
+                  >
+                    <option value="" disabled>
+                      {adminOrganizationLoading
+                        ? 'Loading organizations...'
+                        : 'Select organization'}
+                    </option>
+
+                    {adminOrganizations.map(
+                      (adminOrganization) => (
+                        <option
+                          key={
+                            adminOrganization.organization_id
+                          }
+                          value={
+                            adminOrganization.organization_id
+                          }
+                        >
+                          {adminOrganization.organization_name}
+                        </option>
+                      ),
+                    )}
+                  </select>
+
+                  {adminOrganizationError && (
+                    <p className="mt-2 text-xs text-red-400">
+                      {adminOrganizationError}
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
 
             <Link
@@ -298,10 +361,9 @@ export default function Dashboard() {
               <Link
                 key={item.to}
                 to={item.to}
-               className="group flex h-full min-h-[150px] flex-col pr-card p-4 transition duration-200 hover:-translate-y-0.5 hover:border-court/30 hover:shadow-lg sm:min-h-[165px] sm:p-5"
+                className="group flex h-full min-h-[150px] flex-col pr-card p-4 transition duration-200 hover:-translate-y-0.5 hover:border-court/30 hover:shadow-lg sm:min-h-[165px] sm:p-5"
               >
                 <div className="flex h-full items-start gap-3.5 sm:gap-4">
-
                   <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-line bg-paper text-base text-court transition group-hover:border-court/30 group-hover:bg-court group-hover:text-paper">
                     {item.icon}
                   </div>
@@ -323,19 +385,20 @@ export default function Dashboard() {
                       </span>
                     </div>
 
-                    {item.accent && stats.pendingPayments > 0 && (
-                      <div className="mt-3 inline-flex max-w-full items-center gap-1.5 rounded-full border border-court/20 bg-court/10 px-2.5 py-1 text-[10px] font-semibold text-court">
-                        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-court" />
+                    {item.accent &&
+                      stats.pendingPayments > 0 && (
+                        <div className="mt-3 inline-flex max-w-full items-center gap-1.5 rounded-full border border-court/20 bg-court/10 px-2.5 py-1 text-[10px] font-semibold text-court">
+                          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-court" />
 
-                        <span className="truncate">
-                          {stats.pendingPayments}{' '}
-                          {stats.pendingPayments === 1
-                            ? 'payment'
-                            : 'payments'}{' '}
-                          to review
-                        </span>
-                      </div>
-                    )}
+                          <span className="truncate">
+                            {stats.pendingPayments}{' '}
+                            {stats.pendingPayments === 1
+                              ? 'payment'
+                              : 'payments'}{' '}
+                            to review
+                          </span>
+                        </div>
+                      )}
                   </div>
                 </div>
               </Link>
