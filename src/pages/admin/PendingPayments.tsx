@@ -527,7 +527,7 @@ export default function PendingPayments() {
 
             <div className="relative">
               <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                ðŸ”Ž
+                &#128269;
               </span>
 
               <input
@@ -705,7 +705,7 @@ export default function PendingPayments() {
         filteredBookings.length === 0 && (
           <div className="rounded-xl border border-dashed border-gray-300 bg-white p-10 text-center">
             <div className="text-4xl">
-              ðŸ”Ž
+              &#128269;
             </div>
 
             <h2 className="mt-3 text-lg font-semibold text-gray-900">
@@ -959,7 +959,7 @@ export default function PendingPayments() {
                       }
                       className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-100"
                     >
-                      ðŸ‘ View Payment Proof
+                      &#128070; View Payment Proof
                     </button>
                   )}
 
