@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase'
+import { getSelectedAdminOrganizationId } from './organizationService'
 
 export interface ReportRow {
   id: string
@@ -16,9 +17,12 @@ export async function getReservationsInRange(
   startDate: string,
   endDate: string
 ): Promise<ReportRow[]> {
+  const organizationId = await getSelectedAdminOrganizationId()
+
   const { data, error } = await supabase
     .from('reservations')
     .select('id, date, start_time, end_time, payment_type, amount_due, payment_status, status, courts(name)')
+    .eq('organization_id', organizationId)
     .gte('date', startDate)
     .lte('date', endDate)
     .order('date', { ascending: false })
@@ -78,9 +82,12 @@ export async function getOpenPlayReportSummary(
   startDate: string,
   endDate: string
 ): Promise<OpenPlayReportSummary> {
+  const organizationId = await getSelectedAdminOrganizationId()
+
   const { data: sessions, error: sessionsError } = await supabase
     .from('open_play_sessions')
     .select('id')
+    .eq('organization_id', organizationId)
     .gte('session_date', startDate)
     .lte('session_date', endDate)
     .neq('status', 'draft')
