@@ -245,6 +245,20 @@ export async function getMyOrganizations(): Promise<
   return (data ?? []) as AdminOrganization[]
 }
 
+export async function getAdminOrganizationBranding(
+  organizationId: string
+): Promise<OrganizationBranding> {
+  const { data, error } = await supabase.rpc(
+    'get_admin_organization_branding',
+    {
+      p_organization_id: organizationId,
+    }
+  )
+
+  if (error) throw error
+
+  return data as OrganizationBranding
+}
 /* =========================================================
    SELECTED ADMIN ORGANIZATION
 ========================================================= */

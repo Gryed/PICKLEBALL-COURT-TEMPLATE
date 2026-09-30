@@ -33,13 +33,20 @@ export default function AdminNavbar() {
   const {
     organization,
     branding,
+    selectedAdminOrganization,
+    selectedAdminBranding,
     loading,
     error,
     adminOrganizationError,
   } = useOrganization()
 
   const organizationName =
-    organization?.name ?? 'Pickleball Court'
+    selectedAdminOrganization?.organization_name ??
+    organization?.name ??
+    'Pickleball Court'
+
+  const adminBranding =
+    selectedAdminBranding ?? branding
 
   if (error) {
     console.error(
@@ -87,9 +94,9 @@ export default function AdminNavbar() {
             className="group flex shrink-0 items-center gap-2.5"
           >
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-court text-sm font-bold text-paper shadow-[0_0_20px_rgba(207,255,51,0.08)] transition group-hover:scale-105">
-              {branding?.logo_url ? (
+              {adminBranding?.logo_url ? (
                 <img
-                  src={branding.logo_url}
+                  src={adminBranding.logo_url}
                   alt={organizationName}
                   className="h-full w-full object-cover"
                 />

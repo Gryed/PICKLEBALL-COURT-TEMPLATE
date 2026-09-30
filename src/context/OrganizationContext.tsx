@@ -1,5 +1,4 @@
-﻿
-import {
+﻿import {
   createContext,
   useContext,
   useEffect,
@@ -8,6 +7,7 @@ import {
 } from 'react'
 import { useAuth } from './AuthContext'
 import {
+  getAdminOrganizationBranding,
   getConfiguredOrganization,
   getMyOrganizations,
   getPublicBranding,
@@ -21,6 +21,7 @@ import {
 interface OrganizationContextValue {
   organization: PublicOrganization | null
   branding: OrganizationBranding | null
+  selectedAdminBranding: OrganizationBranding | null
   landingContent: OrganizationLandingContent | null
   loading: boolean
   error: string | null
@@ -44,7 +45,10 @@ function applyBranding(branding: OrganizationBranding) {
 
   root.style.setProperty('--color-court', branding.primary_color)
   root.style.setProperty('--color-court-dark', branding.accent_color)
-  root.style.setProperty('--color-court-accent', branding.secondary_color)
+  root.style.setProperty(
+    '--color-court-accent',
+    branding.secondary_color
+  )
   root.style.setProperty('--color-paper', branding.background_color)
   root.style.setProperty('--color-surface', branding.surface_color)
   root.style.setProperty(
@@ -90,6 +94,8 @@ export function OrganizationProvider({
   const [organization, setOrganization] =
     useState<PublicOrganization | null>(null)
   const [branding, setBranding] =
+    useState<OrganizationBranding | null>(null)
+  const [selectedAdminBranding, setSelectedAdminBranding] =
     useState<OrganizationBranding | null>(null)
   const [landingContent, setLandingContent] =
     useState<OrganizationLandingContent | null>(null)
@@ -163,6 +169,7 @@ export function OrganizationProvider({
       if (!user) {
         setAdminOrganizations([])
         setSelectedAdminOrganization(null)
+        setSelectedAdminBranding(null)
         setAdminOrganizationError(null)
         setAdminOrganizationLoading(false)
         return
@@ -180,6 +187,7 @@ export function OrganizationProvider({
 
         if (organizations.length === 0) {
           setSelectedAdminOrganization(null)
+          setSelectedAdminBranding(null)
           return
         }
 
@@ -210,6 +218,7 @@ export function OrganizationProvider({
         }
 
         setSelectedAdminOrganization(null)
+        setSelectedAdminBranding(null)
         window.localStorage.removeItem(
           SELECTED_ADMIN_ORGANIZATION_KEY
         )
@@ -218,6 +227,7 @@ export function OrganizationProvider({
 
         setAdminOrganizations([])
         setSelectedAdminOrganization(null)
+        setSelectedAdminBranding(null)
         setAdminOrganizationError(
           err instanceof Error
             ? err.message
@@ -237,7 +247,47 @@ export function OrganizationProvider({
     }
   }, [user, authLoading])
 
-  function handleSetSelectedAdminOrganization(organizationId: string) {
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadSelectedAdminBranding() {
+      if (!selectedAdminOrganization) {
+        setSelectedAdminBranding(null)
+        return
+      }
+
+      try {
+        const resolvedBranding =
+          await getAdminOrganizationBranding(
+            selectedAdminOrganization.organization_id
+          )
+
+        if (cancelled) return
+
+        setSelectedAdminBranding(resolvedBranding)
+      } catch (err) {
+        if (cancelled) return
+
+        setSelectedAdminBranding(null)
+
+        setAdminOrganizationError(
+          err instanceof Error
+            ? err.message
+            : 'Failed to load selected organization branding.'
+        )
+      }
+    }
+
+    void loadSelectedAdminBranding()
+
+    return () => {
+      cancelled = true
+    }
+  }, [selectedAdminOrganization])
+
+  function handleSetSelectedAdminOrganization(
+    organizationId: string
+  ) {
     const selectedOrganization = adminOrganizations.find(
       (item) => item.organization_id === organizationId
     )
@@ -246,6 +296,7 @@ export function OrganizationProvider({
       return
     }
 
+    setSelectedAdminBranding(null)
     setSelectedAdminOrganization(selectedOrganization)
 
     window.localStorage.setItem(
@@ -259,6 +310,7 @@ export function OrganizationProvider({
       value={{
         organization,
         branding,
+        selectedAdminBranding,
         landingContent,
         loading,
         error,

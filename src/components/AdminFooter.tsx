@@ -1,14 +1,21 @@
-﻿import { useOrganization } from '../context/OrganizationContext'
+﻿
+import { useOrganization } from '../context/OrganizationContext'
 
 export default function AdminFooter({
   section,
 }: {
   section?: string
 }) {
-  const { organization, loading } = useOrganization()
+  const {
+    organization,
+    selectedAdminOrganization,
+    loading,
+  } = useOrganization()
 
   const organizationName =
-    organization?.name ?? 'Pickleball Court'
+    selectedAdminOrganization?.organization_name ??
+    organization?.name ??
+    'Pickleball Court'
 
   return (
     <footer className="py-6 text-center">
