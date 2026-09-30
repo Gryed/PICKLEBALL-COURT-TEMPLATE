@@ -1,4 +1,4 @@
-import AdminFooter from '../../components/AdminFooter';
+import AdminFooter from '../../components/AdminFooter'
 
 import { useEffect, useState } from 'react'
 import type { Settings } from '../../types/court'
@@ -6,6 +6,9 @@ import {
   getSettings,
   updateSettings,
 } from '../../services/courtService'
+import {
+  getSelectedAdminOrganizationId,
+} from '../../services/organizationService'
 import { supabase } from '../../lib/supabase'
 import { useAdminToast } from '../../context/AdminToastContext'
 
@@ -175,8 +178,11 @@ export default function PaymentSettings() {
         file.name.split('.').pop()?.toLowerCase() ||
         'png'
 
+      const organizationId =
+        await getSelectedAdminOrganizationId()
+
       const fileName =
-        `gcash-qr-${Date.now()}.${extension}`
+        `${organizationId}/gcash-qr-${Date.now()}.${extension}`
 
       const {
         error: uploadError,
