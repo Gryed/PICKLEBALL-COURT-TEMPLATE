@@ -54,13 +54,13 @@ export default function SuperAdminDashboard() {
       <div className="mx-auto max-w-7xl">
         <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-court">PickleReserve Platform</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-court">Platform Administration</p>
             <h1 className="mt-2 font-display text-3xl font-bold text-ink">Super Admin</h1>
             <p className="mt-1 text-sm text-muted">Platform-wide administration and tenant management.</p>
           </div>
           <div className="flex items-center gap-4">
-            <Link to="/super-admin/organizations" className="text-sm font-medium text-court hover:underline">Manage organizations →</Link>
-            <Link to="/admin" className="text-sm font-medium text-court hover:underline">Open client back office →</Link>
+            <Link to="/super-admin/organizations" className="text-sm font-medium text-court hover:underline">Manage organizations {'\u2192'}</Link>
+            <Link to="/admin" className="text-sm font-medium text-court hover:underline">Open client back office {'\u2192'}</Link>
           </div>
         </div>
 

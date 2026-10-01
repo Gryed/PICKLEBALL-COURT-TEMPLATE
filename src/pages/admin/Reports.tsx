@@ -1152,7 +1152,7 @@ export default function Reports() {
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-white/70">
-                    PickleReserve
+                    Court Reservation
                   </p>
 
                   <h2 className="mt-1 font-display text-xl font-bold">
