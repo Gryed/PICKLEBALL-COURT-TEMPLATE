@@ -1,0 +1,33 @@
+﻿name: Expire Payment Holds
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: expire-payment-holds
+  cancel-in-progress: true
+
+jobs:
+  expire-payment-holds:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Invoke expiration worker
+        env:
+          EXPIRATION_WORKER_SECRET: ${{ secrets.EXPIRATION_WORKER_SECRET }}
+        run: |
+          set -euo pipefail
+
+          curl --fail-with-body \
+            --silent \
+            --show-error \
+            --request POST \
+            --header "Authorization: Bearer ${EXPIRATION_WORKER_SECRET}" \
+            --header "Content-Type: application/json" \
+            --data '{}' \
+            "https://djgigvyiekoiaohyqrsw.supabase.co/functions/v1/expire-payment-holds"

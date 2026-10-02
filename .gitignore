@@ -25,3 +25,5 @@ dist-ssr
 .env
 # Local database / SQL files
 database/
+
+supabase/.temp/

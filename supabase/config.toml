@@ -1,0 +1,4 @@
+﻿project_id = "djgigvyiekoiaohyqrsw"
+
+[functions.expire-payment-holds]
+verify_jwt = false
