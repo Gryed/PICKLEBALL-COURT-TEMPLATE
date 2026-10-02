@@ -1,4 +1,4 @@
-﻿import { Link } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { useOrganization } from '../context/OrganizationContext'
 
 export default function Home() {
@@ -57,6 +57,14 @@ export default function Home() {
                 className="inline-flex items-center justify-center rounded-lg border border-white/30 bg-white/10 px-7 py-4 text-sm font-semibold text-white backdrop-blur-sm transition hover:bg-white/20"
               >
                 {hero_content.secondary_cta}
+              </Link>
+
+              <Link
+                to="/open-play/create"
+                className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/30 bg-white/10 px-7 py-4 text-sm font-semibold text-white backdrop-blur-sm transition hover:bg-white/20"
+              >
+                Create Open Play
+                <span aria-hidden="true">→</span>
               </Link>
             </div>
 

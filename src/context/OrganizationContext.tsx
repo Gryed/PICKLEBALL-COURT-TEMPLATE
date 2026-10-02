@@ -1,10 +1,11 @@
-﻿import {
+import {
   createContext,
   useContext,
   useEffect,
   useState,
   type ReactNode,
 } from 'react'
+import BrandingLoader from '../components/BrandingLoader'
 import { useAuth } from './AuthContext'
 import {
   getAdminOrganizationBranding,
@@ -120,23 +121,24 @@ export function OrganizationProvider({
         setLoading(true)
         setError(null)
 
-        const [
-          resolvedOrganization,
-          resolvedBranding,
-          resolvedLandingContent,
-        ] = await Promise.all([
-          getConfiguredOrganization(),
-          getPublicBranding(),
-          getPublicLandingContent(),
-        ])
+        const resolvedOrganization = await getConfiguredOrganization()
 
         if (cancelled) return
 
         setOrganization(resolvedOrganization)
-        setBranding(resolvedBranding)
-        setLandingContent(resolvedLandingContent)
 
-        applyBranding(resolvedBranding)
+        const [resolvedBranding, resolvedLandingContent] =
+  await Promise.all([
+    getPublicBranding(),
+    getPublicLandingContent(),
+  ])
+
+if (cancelled) return
+
+setBranding(resolvedBranding)
+setLandingContent(resolvedLandingContent)
+
+applyBranding(resolvedBranding)
       } catch (err) {
         if (cancelled) return
 
@@ -305,25 +307,34 @@ export function OrganizationProvider({
     )
   }
 
+  if (loading) {
   return (
-    <OrganizationContext.Provider
-      value={{
-        organization,
-        branding,
-        selectedAdminBranding,
-        landingContent,
-        loading,
-        error,
-        adminOrganizations,
-        selectedAdminOrganization,
-        adminOrganizationLoading,
-        adminOrganizationError,
-        setSelectedAdminOrganization:
-          handleSetSelectedAdminOrganization,
-      }}
-    >
-      {children}
-    </OrganizationContext.Provider>
+    <BrandingLoader
+      clientName={organization?.name}
+    />
+  )
+}
+
+return (
+  <OrganizationContext.Provider
+    value={{
+      organization,
+      branding,
+      selectedAdminBranding,
+      landingContent,
+      loading,
+      error,
+      adminOrganizations,
+      selectedAdminOrganization,
+      adminOrganizationLoading,
+      adminOrganizationError,
+      setSelectedAdminOrganization:
+        handleSetSelectedAdminOrganization,
+    }}
+  >
+    {children}
+  </OrganizationContext.Provider>
+
   )
 }
 

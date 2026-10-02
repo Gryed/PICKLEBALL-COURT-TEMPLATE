@@ -20,6 +20,7 @@ import Reservations from './pages/admin/Reservations'
 import Reports from './pages/admin/Reports'
 import CreateBooking from './pages/admin/CreateBooking'
 import OpenPlay from './pages/OpenPlay'
+import CreateOpenPlay from './pages/CreateOpenPlay'
 import AdminOpenPlay from './pages/admin/OpenPlay'
 import AdminOpenPlayDetails from './pages/admin/OpenPlayDetails'
 import OpenPlayDetails from './pages/OpenPlayDetails'
@@ -281,6 +282,15 @@ function App() {
               </PublicLayout>
             }
           />
+          <Route
+            path="/open-play/create"
+            element={
+              <PublicLayout>
+                <CreateOpenPlay />
+              </PublicLayout>
+            }
+          />
+
 
           <Route
             path="/open-play/:sessionId"

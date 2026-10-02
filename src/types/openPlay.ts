@@ -1,4 +1,4 @@
-export type OpenPlaySessionStatus =
+﻿export type OpenPlaySessionStatus =
   | 'draft'
   | 'open'
   | 'closed'
@@ -38,7 +38,9 @@ export interface OpenPlaySession {
   rules: string | null
   registration_opens_at: string | null
   registration_closes_at: string | null
-  created_by: string
+  created_by: string | null
+  host_name: string | null
+  host_contact_phone: string | null
   cancelled_at: string | null
   cancelled_by: string | null
   cancellation_reason: string | null
@@ -70,7 +72,10 @@ export interface OpenPlaySessionPublic {
 export interface OpenPlayParticipant {
   id: string
   session_id: string
-  user_id: string
+  user_id: string | null
+  guest_name: string | null
+  guest_contact_phone: string | null
+  guest_access_token_hash: string | null
   participant_name: string
   contact_phone: string | null
   status: OpenPlayParticipantStatus
@@ -111,6 +116,23 @@ export interface OpenPlayPayment {
   open_play_participant_id: string | null
 }
 
+
+export interface JoinOpenPlayInput {
+  session_id: string
+  participant_name: string
+  contact_phone?: string | null
+}
+
+export interface CreateGuestOpenPlayParticipationInput {
+  session_id: string
+  guest_name: string
+  guest_contact_phone: string
+}
+
+export interface GuestOpenPlayParticipationResult {
+  participant: OpenPlayParticipant
+  access_token: string
+}
 export interface CreateOpenPlaySessionInput {
   session_reference: string
   title: string
@@ -166,3 +188,4 @@ export interface CancelOpenPlayParticipationInput {
   participant_id: string
   cancellation_reason?: string | null
 }
+

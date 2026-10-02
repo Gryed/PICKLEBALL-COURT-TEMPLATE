@@ -1,6 +1,8 @@
-import { supabase } from '../lib/supabase'
+﻿import { supabase } from '../lib/supabase'
 import type {
   CancelOpenPlayParticipationInput,
+  CreateGuestOpenPlayParticipationInput,
+  GuestOpenPlayParticipationResult,
   CreateOpenPlaySessionInput,
   JoinOpenPlayInput,
   OpenPlayParticipant,
@@ -12,7 +14,7 @@ import type {
 } from '../types/openPlay'
 
 // ============================================================
-// PUBLIC — OPEN PLAY DISCOVERY
+// PUBLIC â€” OPEN PLAY DISCOVERY
 // ============================================================
 
 export async function getOpenPlaySessions(): Promise<
@@ -57,7 +59,7 @@ export async function getOpenPlaySession(
 
   return data[0] as OpenPlaySessionPublic
 }
-// ADMIN — SESSION LIST
+// ADMIN â€” SESSION LIST
 export async function getAdminOpenPlaySessions(): Promise<OpenPlaySession[]> {
   const { data, error } = await supabase
     .from('open_play_sessions')
@@ -73,7 +75,7 @@ export async function getAdminOpenPlaySessions(): Promise<OpenPlaySession[]> {
   return (data ?? []) as OpenPlaySession[]
 }
 // ============================================================
-// ADMIN — SESSION MANAGEMENT
+// ADMIN â€” SESSION MANAGEMENT
 // ============================================================
 
 export async function createOpenPlaySession(
@@ -190,7 +192,7 @@ export async function cancelOpenPlaySession(
 }
 
 // ============================================================
-// CUSTOMER — PARTICIPATION
+// CUSTOMER â€” PARTICIPATION
 // ============================================================
 
 export async function joinOpenPlaySession(
@@ -286,7 +288,7 @@ export async function cancelOpenPlayParticipation(
 }
 
 // ============================================================
-// CUSTOMER — OWN PARTICIPATIONS
+// CUSTOMER â€” OWN PARTICIPATIONS
 // ============================================================
 
 export async function getMyOpenPlayParticipants(): Promise<
@@ -325,7 +327,7 @@ export async function getMyOpenPlayParticipations(): Promise<Record<string, unkn
 }
 
 // ============================================================
-// ADMIN — PARTICIPANTS
+// ADMIN â€” PARTICIPANTS
 // ============================================================
 
 export async function getOpenPlayParticipants(
@@ -375,7 +377,7 @@ export async function getOpenPlayPayments(
 }
 
 // ============================================================
-// ADMIN — PAYMENT VERIFICATION
+// ADMIN â€” PAYMENT VERIFICATION
 // ============================================================
 
 export async function verifyOpenPlayPayment(
@@ -421,4 +423,78 @@ export async function rejectOpenPlayPayment(
   }
 
   return data as OpenPlayParticipant
+}
+
+export async function createGuestOpenPlaySession(
+  input: CreateGuestOpenPlaySessionInput,
+): Promise<OpenPlaySession> {
+  const { data, error } = await supabase.rpc(
+    'create_guest_open_play_session',
+    {
+      p_host_name: input.host_name,
+      p_host_contact_phone: input.host_contact_phone,
+      p_title: input.title,
+      p_court_id: input.court_id,
+      p_session_date: input.session_date,
+      p_start_time: input.start_time,
+      p_end_time: input.end_time,
+      p_price_per_player: input.price_per_player,
+      p_capacity: input.capacity,
+      p_description: input.description ?? null,
+      p_rules: input.rules ?? null,
+      p_registration_opens_at:
+        input.registration_opens_at ?? null,
+      p_registration_closes_at:
+        input.registration_closes_at ?? null,
+    },
+  )
+
+  if (error) {
+    console.error(
+      'Error creating guest Open Play session:',
+      error,
+    )
+    throw error
+  }
+
+  return data as OpenPlaySession
+}
+
+export async function createGuestOpenPlayParticipation(
+  input: CreateGuestOpenPlayParticipationInput,
+): Promise<GuestOpenPlayParticipationResult> {
+  const { data, error } = await supabase.rpc(
+    'create_guest_open_play_participation',
+    {
+      p_session_id: input.session_id,
+      p_guest_name: input.guest_name,
+      p_guest_contact_phone:
+        input.guest_contact_phone,
+    },
+  )
+
+  if (error) {
+    console.error(
+      'Error creating guest Open Play participation:',
+      error,
+    )
+    throw error
+  }
+
+  return data as GuestOpenPlayParticipationResult
+}
+export interface CreateGuestOpenPlaySessionInput {
+  host_name: string
+  host_contact_phone: string
+  title: string
+  court_id: string
+  session_date: string
+  start_time: string
+  end_time: string
+  price_per_player: number
+  capacity: number
+  description?: string | null
+  rules?: string | null
+  registration_opens_at?: string | null
+  registration_closes_at?: string | null
 }
