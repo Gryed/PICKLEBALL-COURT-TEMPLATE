@@ -14,7 +14,10 @@ import {
 } from '../services/availabilityService'
 
 import { createBookingAtomic } from '../services/atomicBookingService'
-import { uploadPaymentProof } from '../services/paymentService'
+import {
+  deletePaymentProof,
+  uploadPaymentProof,
+} from '../services/paymentService'
 import { useAuth } from '../context/AuthContext'
 import { useOrganization } from '../context/OrganizationContext'
 
@@ -766,6 +769,8 @@ export default function Booking() {
     setSubmitting(true)
     setError('')
 
+    let uploadedProofPath: string | null = null
+
     try {
       const amountPerSlot =
         getAmountDue() /
@@ -780,6 +785,8 @@ export default function Booking() {
           idPrefix,
           court?.organization_id ?? ''
         )
+
+      uploadedProofPath = proofUrl
 
       const reference =
         await generateBookingReference(selectedCourtId)
@@ -822,6 +829,14 @@ await createBookingAtomic(reservations)
       setCopied(false)
       setModalStep('success')
     } catch (err) {
+      if (uploadedProofPath) {
+        try {
+          await deletePaymentProof(uploadedProofPath)
+        } catch {
+          // Preserve the original booking error if cleanup also fails.
+        }
+      }
+
       setError(
         err instanceof Error
           ? err.message
@@ -949,7 +964,7 @@ const bookedCount =
               {court && (
                 <div className="mt-1 flex flex-wrap items-center gap-2">
                   <p className="text-sm text-muted">
-                    ₱{bookingHourlyRate} / hour
+                    Ã¢â€šÂ±{bookingHourlyRate} / hour
                   </p>
 
                   {weekendRateActive && (
@@ -1058,7 +1073,7 @@ const bookedCount =
 
                       <div className="mt-1 flex flex-wrap items-center gap-2">
                         <p className="text-sm text-muted">
-                          ₱{itemWeekendRate} / hour
+                          Ã¢â€šÂ±{itemWeekendRate} / hour
                         </p>
 
                         {itemWeekendActive && (
@@ -1365,7 +1380,7 @@ const bookedCount =
 
                   {weekendRateActive && (
                     <p className="mt-1 text-xs font-semibold text-court">
-                      Weekend pricing applies · ₱
+                      Weekend pricing applies Ã‚Â· Ã¢â€šÂ±
                       {bookingHourlyRate} / hour
                     </p>
                   )}
@@ -1733,7 +1748,7 @@ const bookedCount =
                                     : 'text-court')
                                 }
                               >
-                                ₱
+                                Ã¢â€šÂ±
                                 {bookingHourlyRate}
                               </span>
                             </button>
@@ -1937,7 +1952,7 @@ const bookedCount =
                           </p>
 
                           <p className="mt-1 text-xs text-muted">
-                            Pay ₱
+                            Pay Ã¢â€šÂ±
                             {getTotalPrice()}{' '}
                             now
                           </p>
@@ -1967,7 +1982,7 @@ const bookedCount =
                               settings?.deposit_percentage ??
                               50
                             }
-                            % deposit · ₱
+                            % deposit Ã‚Â· Ã¢â€šÂ±
                             {Math.round(
                               (getTotalPrice() *
                                 (settings?.deposit_percentage ??
@@ -2172,7 +2187,7 @@ const bookedCount =
                                     </p>
 
                                     <p className="mt-1 text-xs text-muted">
-                                      Pay ₱
+                                      Pay Ã¢â€šÂ±
                                       {getTotalPrice()}{' '}
                                       now
                                     </p>
@@ -2213,7 +2228,7 @@ const bookedCount =
                                         settings?.deposit_percentage ??
                                         50
                                       }
-                                      % deposit · ₱
+                                      % deposit Ã‚Â· Ã¢â€šÂ±
                                       {Math.round(
                                         (getTotalPrice() *
                                           (settings?.deposit_percentage ??
@@ -2315,7 +2330,7 @@ const bookedCount =
                               ? '1 Hour'
                               : bookingDuration ===
                                   '6'
-                                ? '6 Hours · Half Day'
+                                ? '6 Hours Ã‚Â· Half Day'
                                 : 'Full Day'}
                           </p>
                         </div>
@@ -2348,7 +2363,7 @@ const bookedCount =
                                       ? 's'
                                       : ''}
                                     {group.isSeparate
-                                      ? ' · Separate slot'
+                                      ? ' Ã‚Â· Separate slot'
                                       : ''}
                                   </p>
                                 </div>
@@ -2405,7 +2420,7 @@ const bookedCount =
                           </span>
 
                           <span className="font-medium text-ink">
-                            ₱
+                            Ã¢â€šÂ±
                             {
                               bookingHourlyRate
                             }{' '}
@@ -2445,7 +2460,7 @@ const bookedCount =
                           </p>
 
                           <p className="mt-1 font-display text-3xl font-semibold text-ink">
-                            ₱
+                            Ã¢â€šÂ±
                             {getTotalPrice()}
                           </p>
                         </div>
@@ -2458,7 +2473,7 @@ const bookedCount =
                             </p>
 
                             <p className="font-semibold text-court">
-                              ₱
+                              Ã¢â€šÂ±
                               {getAmountDue()}
                             </p>
                           </div>
@@ -2503,7 +2518,7 @@ const bookedCount =
                           group.end
                         )}`
                     )
-                    .join(' · ')}
+                    .join(' Ã‚Â· ')}
                 </p>
 
                 <p className="text-xs text-muted">
@@ -2513,7 +2528,7 @@ const bookedCount =
                   1
                     ? 's'
                     : ''}{' '}
-                  · ₱
+                  Ã‚Â· Ã¢â€šÂ±
                   {getTotalPrice()}
                 </p>
               </div>
@@ -2668,7 +2683,7 @@ const bookedCount =
               </h2>
 
               <p className="mt-1 text-sm text-muted">
-                Pay ₱
+                Pay Ã¢â€šÂ±
                 {getAmountDue()} via GCash, then upload your payment screenshot.
               </p>
             </div>
