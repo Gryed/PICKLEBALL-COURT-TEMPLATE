@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   calculateRevenue,
   exportToCSV,
@@ -8,6 +8,7 @@ import {
   type ReportRow,
 } from '../../services/reportService'
 
+import { useOrganization } from '../../context/OrganizationContext'
 type QuickRange =
   | 'today'
   | 'week'
@@ -19,7 +20,7 @@ type PaymentFilter =
   | 'pending'
   | 'verified'
   | 'rejected'
-
+  | 'expired'
 type BookingFilter =
   | 'all'
   | 'confirmed'
@@ -79,6 +80,8 @@ function firstDayOfWeek() {
 }
 
 export default function Reports() {
+  const { selectedAdminOrganization } = useOrganization()
+  const reportRequestId = useRef(0)
   const [quickRange, setQuickRange] =
     useState<QuickRange>('month')
 
@@ -140,6 +143,22 @@ export default function Reports() {
       return
     }
 
+    const requestId = ++reportRequestId.current
+
+    if (!selectedAdminOrganization) {
+      setRows([])
+      setOpenPlaySummary({
+        sessions: 0,
+        participants: 0,
+        confirmedParticipants: 0,
+        pendingParticipants: 0,
+        revenue: 0,
+      })
+      setLoading(false)
+      setError('')
+      return
+    }
+
     try {
       setLoading(true)
       setError('')
@@ -156,10 +175,18 @@ export default function Reports() {
           ),
         ])
 
+      if (requestId !== reportRequestId.current) {
+        return
+      }
+
       setRows(data)
       setOpenPlaySummary(openPlayData)
     } catch (err) {
       console.error(err)
+
+      if (requestId !== reportRequestId.current) {
+        return
+      }
 
       setError(
         err instanceof Error
@@ -167,13 +194,18 @@ export default function Reports() {
           : 'Failed to load report.'
       )
     } finally {
-      setLoading(false)
+      if (requestId === reportRequestId.current) {
+        setLoading(false)
+      }
     }
   }
-
   useEffect(() => {
-    loadReport()
-  }, [startDate, endDate])
+    void loadReport()
+  }, [
+    startDate,
+    endDate,
+    selectedAdminOrganization?.organization_id,
+  ])
 
   /* =====================================================
      QUICK DATE RANGE
@@ -341,6 +373,13 @@ export default function Reports() {
         'rejected'
     ).length
 
+  const expiredPaymentCount =
+    filteredRows.filter(
+      (row) =>
+        row.payment_status ===
+        'expired'
+    ).length
+
   const totalAmount =
     filteredRows.reduce(
       (sum, row) =>
@@ -393,6 +432,17 @@ export default function Reports() {
         <span className="inline-flex items-center gap-1.5 rounded-full border border-red-400/20 bg-red-400/10 px-2.5 py-1 text-[10px] font-semibold text-red-400">
           <span>✕</span>
           Rejected
+        </span>
+      )
+    }
+
+    if (
+      status === 'expired'
+    ) {
+      return (
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-orange-400/20 bg-orange-400/10 px-2.5 py-1 text-[10px] font-semibold text-orange-300">
+          <span>⌛</span>
+          Expired
         </span>
       )
     }
@@ -809,6 +859,10 @@ export default function Reports() {
 
                   <option value="rejected">
                     Rejected ({rejectedPaymentCount})
+                  </option>
+
+                  <option value="expired">
+                    Expired ({expiredPaymentCount})
                   </option>
                 </select>
               </div>

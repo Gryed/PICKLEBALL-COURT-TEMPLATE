@@ -61,7 +61,26 @@ export function exportToCSV(rows: ReportRow[]): void {
     r.status,
   ])
 
-  const csvContent = [headers, ...csvRows].map((row) => row.join(',')).join('\n')
+  const escapeCSV = (value: unknown) => {
+    const text = String(value ?? '')
+
+    if (
+      text.includes(',') ||
+      text.includes('"') ||
+      text.includes('\n') ||
+      text.includes('\r')
+    ) {
+      return ""
+    }
+
+    return text
+  }
+
+  const csvContent = [headers, ...csvRows]
+    .map((row) =>
+      row.map(escapeCSV).join(',')
+    )
+    .join('\r\n')
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
