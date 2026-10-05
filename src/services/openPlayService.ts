@@ -1,4 +1,5 @@
-﻿import { supabase } from '../lib/supabase'
+﻿import { getSelectedAdminOrganizationId } from './organizationService'
+import { supabase } from '../lib/supabase'
 import type {
   CancelOpenPlayParticipationInput,
   CreateGuestOpenPlayParticipationInput,
@@ -61,9 +62,11 @@ export async function getOpenPlaySession(
 }
 // ADMIN â€” SESSION LIST
 export async function getAdminOpenPlaySessions(): Promise<OpenPlaySession[]> {
+  const organizationId = await getSelectedAdminOrganizationId()
   const { data, error } = await supabase
     .from('open_play_sessions')
     .select('*')
+    .eq('organization_id', organizationId)
     .order('session_date', { ascending: true })
     .order('start_time', { ascending: true })
 
@@ -333,10 +336,12 @@ export async function getMyOpenPlayParticipations(): Promise<Record<string, unkn
 export async function getOpenPlayParticipants(
   sessionId: string,
 ): Promise<OpenPlayParticipant[]> {
+  const organizationId = await getSelectedAdminOrganizationId()
   const { data, error } = await supabase
     .from('open_play_participants')
     .select('*')
     .eq('session_id', sessionId)
+    .eq('organization_id', organizationId)
     .order('created_at', {
       ascending: true,
     })
@@ -355,6 +360,7 @@ export async function getOpenPlayParticipants(
 export async function getOpenPlayPayments(
   participantIds: string[],
 ): Promise<OpenPlayPayment[]> {
+  const organizationId = await getSelectedAdminOrganizationId()
   if (participantIds.length === 0) {
     return []
   }
@@ -363,6 +369,7 @@ export async function getOpenPlayPayments(
     .from('payments')
     .select('*')
     .in('open_play_participant_id', participantIds)
+    .eq('organization_id', organizationId)
     .order('submitted_at', { ascending: false })
 
   if (error) {
@@ -498,3 +505,4 @@ export interface CreateGuestOpenPlaySessionInput {
   registration_opens_at?: string | null
   registration_closes_at?: string | null
 }
+
