@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabase'
+﻿import { supabase } from '../lib/supabase'
 import {
   getSelectedAdminOrganizationId,
 } from './organizationService'
@@ -58,6 +58,28 @@ export async function getPublicCourts(
    PUBLIC BOOKING SETTINGS
 ========================================================= */
 
+/* =========================================================
+   PUBLIC COURT ORGANIZATION
+========================================================= */
+export async function getPublicCourtOrganizationId(
+  courtId: string
+): Promise<string> {
+  const { data, error } = await supabase
+    .from('courts')
+    .select('id, organization_id')
+    .eq('id', courtId)
+    .maybeSingle()
+  if (error) throw error
+  if (!data?.organization_id) {
+    throw new Error(
+      'The Open Play court organization could not be resolved.'
+    )
+  }
+  return data.organization_id
+}
+/* =========================================================
+   PUBLIC BOOKING SETTINGS
+========================================================= */
 export async function getPublicBookingSettings(
   courtId: string
 ): Promise<Settings> {

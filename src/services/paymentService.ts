@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabase'
+﻿import { supabase } from '../lib/supabase'
 import type {
   Payment,
   PaymentMethod,
@@ -15,11 +15,24 @@ export async function uploadPaymentProof(
 
   const { error: uploadError } = await supabase.storage
     .from('payment-proofs')
-    .upload(fileName, file)
+    .upload(fileName, file, {
+      contentType: file.type,
+      upsert: false,
+    })
 
   if (uploadError) throw uploadError
 
   return fileName
+}
+
+export async function deletePaymentProof(proofPath: string): Promise<void> {
+  if (!proofPath || /^https?:\/\//i.test(proofPath)) return
+
+  const { error } = await supabase.storage
+    .from('payment-proofs')
+    .remove([proofPath])
+
+  if (error) throw error
 }
 
 /**
