@@ -70,7 +70,7 @@ export function exportToCSV(rows: ReportRow[]): void {
       text.includes('\n') ||
       text.includes('\r')
     ) {
-      return ""
+      return `"${text.replace(/"/g, '""')}"`
     }
 
     return text
