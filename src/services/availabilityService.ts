@@ -325,6 +325,9 @@ export async function rejectBookingPayment(
 export async function getPendingPaymentsAdmin(): Promise<
   Reservation[]
 > {
+  const organizationId =
+    await getSelectedAdminOrganizationId()
+
   const { data, error } =
     await supabase
       .from('reservations')
@@ -334,6 +337,10 @@ export async function getPendingPaymentsAdmin(): Promise<
           name
         )
       `)
+      .eq(
+        'organization_id',
+        organizationId
+      )
       .eq(
         'status',
         'confirmed'
@@ -405,6 +412,9 @@ export async function getUserReservations(
 export async function getAllReservationsAdmin(): Promise<
   Reservation[]
 > {
+  const organizationId =
+    await getSelectedAdminOrganizationId()
+
   const { data, error } =
     await supabase
       .from('reservations')
@@ -414,6 +424,10 @@ export async function getAllReservationsAdmin(): Promise<
           name
         )
       `)
+      .eq(
+        'organization_id',
+        organizationId
+      )
       .order('date', {
         ascending: false,
       })
