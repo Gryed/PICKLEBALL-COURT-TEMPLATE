@@ -575,7 +575,7 @@ export default function CreateBooking() {
               }
               className="inline-flex items-center justify-center gap-2 rounded-xl border border-line bg-surface px-4 py-2.5 text-sm font-semibold text-ink shadow-sm transition hover:border-court/30 hover:bg-surface-elevated"
             >
-              <span className="text-base">â†</span>
+              <span className="text-base">←</span>
               Back to Reservations
             </button>
           </div>
@@ -597,7 +597,7 @@ export default function CreateBooking() {
               onClick={() => setError('')}
               className="rounded-lg px-2 text-lg leading-none text-red-300 transition hover:bg-red-500/10 hover:text-red-200"
             >
-              Ã—
+              ×
             </button>
           </div>
         )}
@@ -647,7 +647,7 @@ export default function CreateBooking() {
                 {courts.length === 0 ? (
                   <div className="rounded-xl border border-dashed border-line bg-paper px-4 py-10 text-center">
                     <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-surface-elevated text-xl">
-                      ðŸ“
+                      🏓
                     </div>
 
                     <p className="text-sm font-semibold text-ink">
@@ -708,7 +708,7 @@ export default function CreateBooking() {
                                     : 'bg-paper text-court group-hover:bg-court/10'
                                 }`}
                               >
-                                ðŸ“
+                                🏓
                               </div>
 
                               <div className="min-w-0">
@@ -745,7 +745,7 @@ export default function CreateBooking() {
                               </p>
 
                               <p className="mt-1 text-base font-bold text-ink">
-                                â‚±{displayRate.toLocaleString()}
+                                {'\u20B1'}{displayRate.toLocaleString()}
                                 <span className="ml-1 text-xs font-normal text-muted">
                                   / hour
                                 </span>
@@ -916,7 +916,7 @@ export default function CreateBooking() {
                 ) : slots.length === 0 ? (
                   <div className="rounded-2xl border border-dashed border-line bg-paper px-4 py-12 text-center">
                     <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-surface-elevated text-lg">
-                      ðŸ•
+                      {'\u{1F550}'}
                     </div>
 
                     <p className="text-sm font-bold text-ink">
@@ -970,7 +970,7 @@ export default function CreateBooking() {
 
                             {selected && (
                               <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white/15 text-xs">
-                                âœ“
+                                {'\u2713'}
                               </span>
                             )}
                           </div>
@@ -1008,7 +1008,7 @@ export default function CreateBooking() {
                       </p>
 
                       <p className="mt-1 text-[11px] text-muted">
-                        Current total: â‚±
+                        Current total: {'\u20B1'}
                         {totalAmount.toLocaleString()}
                       </p>
                     </div>
@@ -1055,7 +1055,7 @@ export default function CreateBooking() {
                               : 'bg-paper text-court'
                           }`}
                         >
-                          ðŸ‘¤
+                          {'\u{1F464}'}
                         </div>
 
                         <div>
@@ -1071,7 +1071,7 @@ export default function CreateBooking() {
 
                       {customerType === 'guest' && (
                         <span className="flex h-6 w-6 items-center justify-center rounded-full bg-court/10 text-xs font-bold text-court">
-                          âœ“
+                          {'\u2713'}
                         </span>
                       )}
                     </div>
@@ -1097,7 +1097,7 @@ export default function CreateBooking() {
                               : 'bg-paper text-court'
                           }`}
                         >
-                          ðŸ”
+                          {'\u{1F50E}'}
                         </div>
 
                         <div>
@@ -1113,7 +1113,7 @@ export default function CreateBooking() {
 
                       {customerType === 'registered' && (
                         <span className="flex h-6 w-6 items-center justify-center rounded-full bg-court/10 text-xs font-bold text-court">
-                          âœ“
+                          {'\u2713'}
                         </span>
                       )}
                     </div>
@@ -1197,8 +1197,8 @@ export default function CreateBooking() {
 
                         <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-muted">
                           {searchingCustomers
-                            ? 'â€¦'
-                            : 'âŒ•'}
+                            ? '…'
+                            : '\u2315'}
                         </span>
                       </div>
 
@@ -1251,7 +1251,7 @@ export default function CreateBooking() {
                                   </div>
 
                                   <span className="shrink-0 text-xs font-bold text-court">
-                                    Select â†’
+                                    Select →
                                   </span>
                                 </button>
                               ),
@@ -1335,13 +1335,13 @@ export default function CreateBooking() {
 
                       {paymentType === 'full' && (
                         <span className="flex h-6 w-6 items-center justify-center rounded-full bg-court/10 text-xs font-bold text-court">
-                          âœ“
+                          {'\u2713'}
                         </span>
                       )}
                     </div>
 
                     <p className="mt-5 text-xl font-bold text-ink">
-                      â‚±{totalAmount.toLocaleString()}
+                      {'\u20B1'}{totalAmount.toLocaleString()}
                     </p>
                   </button>
 
@@ -1372,13 +1372,13 @@ export default function CreateBooking() {
 
                       {paymentType === 'deposit' && (
                         <span className="flex h-6 w-6 items-center justify-center rounded-full bg-court/10 text-xs font-bold text-court">
-                          âœ“
+                          {'\u2713'}
                         </span>
                       )}
                     </div>
 
                     <p className="mt-5 text-xl font-bold text-ink">
-                      â‚±{depositAmount.toLocaleString()}
+                      {'\u20B1'}{depositAmount.toLocaleString()}
                     </p>
                   </button>
                 </div>
@@ -1417,7 +1417,7 @@ export default function CreateBooking() {
                     </div>
 
                     <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/10 text-lg">
-                      ðŸ“
+                      🏓
                     </div>
                   </div>
                 </div>
@@ -1461,7 +1461,7 @@ export default function CreateBooking() {
                         </p>
 
                         <p className="mt-1 truncate text-sm font-bold text-ink">
-                          {selectedCourt?.name ?? 'â€”'}
+                          {selectedCourt?.name ?? '—'}
                         </p>
                       </div>
 
@@ -1533,7 +1533,7 @@ export default function CreateBooking() {
                         </span>
 
                         <span className="font-semibold text-ink">
-                          â‚±{hourlyRate.toLocaleString()}/hr
+                          {'\u20B1'}{hourlyRate.toLocaleString()}/hr
                         </span>
                       </div>
 
@@ -1570,7 +1570,7 @@ export default function CreateBooking() {
                           </p>
 
                           <p className="mt-1 text-2xl font-bold text-ink">
-                            â‚±{totalAmount.toLocaleString()}
+                            {'\u20B1'}{totalAmount.toLocaleString()}
                           </p>
                         </div>
 
@@ -1580,7 +1580,7 @@ export default function CreateBooking() {
                           </p>
 
                           <p className="mt-1 text-sm font-bold text-court">
-                            â‚±{amountDue.toLocaleString()}
+                            {'\u20B1'}{amountDue.toLocaleString()}
                           </p>
                         </div>
                       </div>
@@ -1621,7 +1621,7 @@ export default function CreateBooking() {
 
             <div className="bg-court px-6 py-7 text-center text-white">
               <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-white/15 text-3xl">
-                âœ“
+                {'\u2713'}
               </div>
 
               <h2 className="mt-4 font-display text-xl font-bold">

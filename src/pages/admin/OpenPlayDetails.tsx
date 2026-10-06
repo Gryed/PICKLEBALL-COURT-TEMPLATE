@@ -269,7 +269,7 @@ export default function OpenPlayDetails() {
               to="/open-play"
               className="mt-5 inline-flex rounded-xl border border-line px-4 py-2.5 text-sm font-semibold text-ink transition hover:border-court/30 hover:text-court"
             >
-              â† Back to Open Play
+              ← Back to Open Play
             </Link>
           </div>
         </div>
@@ -300,7 +300,7 @@ export default function OpenPlayDetails() {
             to="/open-play"
             className="inline-flex items-center gap-2 text-sm font-semibold text-muted transition hover:text-court"
           >
-            â† Back to Open Play
+            ← Back to Open Play
           </Link>
         </div>
 
