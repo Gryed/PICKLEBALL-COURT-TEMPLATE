@@ -9,7 +9,7 @@ import {
 } from '../../services/courtService'
 import {
   getAvailableSlots,
-  createReservation,
+  createAdminBookingsAtomic,
   generateBookingReference,
 } from '../../services/availabilityService'
 import {
@@ -428,57 +428,63 @@ export default function CreateBooking() {
         (a, b) => a.localeCompare(b),
       )
 
-      for (const startTime of sortedSlots) {
-        const slot = latestSlots.find(
-          (item) =>
-            item.start_time === startTime,
-        )
-
-        if (!slot || !slot.available) {
-          throw new Error(
-            'One or more selected slots are no longer available.',
+      const reservations = sortedSlots.map(
+        (startTime) => {
+          const slot = latestSlots.find(
+            (item) =>
+              item.start_time === startTime,
           )
-        }
 
-        await createReservation({
-          court_id: selectedCourtId,
+          if (!slot || !slot.available) {
+            throw new Error(
+              'One or more selected slots are no longer available.',
+            )
+          }
 
-          user_id:
-            customerType === 'registered'
-              ? selectedCustomer?.id ?? null
-              : null,
+          return {
+            court_id: selectedCourtId,
 
-          guest_name:
-            customerType === 'guest'
-              ? guestName.trim()
-              : null,
+            user_id:
+              customerType === 'registered'
+                ? selectedCustomer?.id ?? null
+                : null,
 
-          guest_phone:
-            customerType === 'guest'
-              ? guestPhone.trim()
-              : null,
+            guest_name:
+              customerType === 'guest'
+                ? guestName.trim()
+                : null,
 
-          date: selectedDate,
-          start_time: slot.start_time,
-          end_time: slot.end_time,
+            guest_phone:
+              customerType === 'guest'
+                ? guestPhone.trim()
+                : null,
 
-          status: 'confirmed',
+            date: selectedDate,
+            start_time: slot.start_time,
+            end_time: slot.end_time,
 
-          payment_type: paymentType,
+            status: 'confirmed' as const,
 
-          payment_status: 'verified',
+            payment_type: paymentType,
 
-          amount_due:
-            paymentType === 'deposit'
-              ? depositAmount
-              : hourlyRate,
+            payment_status: 'verified' as const,
 
-          payment_proof_url: null,
+            amount_due:
+              paymentType === 'deposit'
+                ? depositAmount
+                : hourlyRate,
 
-          booking_reference:
-            bookingReference,
-        })
-      }
+            payment_proof_url: null,
+
+            booking_reference:
+              bookingReference,
+          }
+        },
+      )
+
+      await createAdminBookingsAtomic(
+        reservations,
+      )
 
       setSuccessReference(bookingReference)
       setSelectedSlots([])
@@ -569,7 +575,7 @@ export default function CreateBooking() {
               }
               className="inline-flex items-center justify-center gap-2 rounded-xl border border-line bg-surface px-4 py-2.5 text-sm font-semibold text-ink shadow-sm transition hover:border-court/30 hover:bg-surface-elevated"
             >
-              <span className="text-base">←</span>
+              <span className="text-base">â†</span>
               Back to Reservations
             </button>
           </div>
@@ -591,7 +597,7 @@ export default function CreateBooking() {
               onClick={() => setError('')}
               className="rounded-lg px-2 text-lg leading-none text-red-300 transition hover:bg-red-500/10 hover:text-red-200"
             >
-              ×
+              Ã—
             </button>
           </div>
         )}
@@ -641,7 +647,7 @@ export default function CreateBooking() {
                 {courts.length === 0 ? (
                   <div className="rounded-xl border border-dashed border-line bg-paper px-4 py-10 text-center">
                     <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-surface-elevated text-xl">
-                      🏓
+                      ðŸ“
                     </div>
 
                     <p className="text-sm font-semibold text-ink">
@@ -702,7 +708,7 @@ export default function CreateBooking() {
                                     : 'bg-paper text-court group-hover:bg-court/10'
                                 }`}
                               >
-                                🏓
+                                ðŸ“
                               </div>
 
                               <div className="min-w-0">
@@ -739,7 +745,7 @@ export default function CreateBooking() {
                               </p>
 
                               <p className="mt-1 text-base font-bold text-ink">
-                                ₱{displayRate.toLocaleString()}
+                                â‚±{displayRate.toLocaleString()}
                                 <span className="ml-1 text-xs font-normal text-muted">
                                   / hour
                                 </span>
@@ -910,7 +916,7 @@ export default function CreateBooking() {
                 ) : slots.length === 0 ? (
                   <div className="rounded-2xl border border-dashed border-line bg-paper px-4 py-12 text-center">
                     <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-surface-elevated text-lg">
-                      🕐
+                      ðŸ•
                     </div>
 
                     <p className="text-sm font-bold text-ink">
@@ -964,7 +970,7 @@ export default function CreateBooking() {
 
                             {selected && (
                               <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white/15 text-xs">
-                                ✓
+                                âœ“
                               </span>
                             )}
                           </div>
@@ -1002,7 +1008,7 @@ export default function CreateBooking() {
                       </p>
 
                       <p className="mt-1 text-[11px] text-muted">
-                        Current total: ₱
+                        Current total: â‚±
                         {totalAmount.toLocaleString()}
                       </p>
                     </div>
@@ -1049,7 +1055,7 @@ export default function CreateBooking() {
                               : 'bg-paper text-court'
                           }`}
                         >
-                          👤
+                          ðŸ‘¤
                         </div>
 
                         <div>
@@ -1065,7 +1071,7 @@ export default function CreateBooking() {
 
                       {customerType === 'guest' && (
                         <span className="flex h-6 w-6 items-center justify-center rounded-full bg-court/10 text-xs font-bold text-court">
-                          ✓
+                          âœ“
                         </span>
                       )}
                     </div>
@@ -1091,7 +1097,7 @@ export default function CreateBooking() {
                               : 'bg-paper text-court'
                           }`}
                         >
-                          🔐
+                          ðŸ”
                         </div>
 
                         <div>
@@ -1107,7 +1113,7 @@ export default function CreateBooking() {
 
                       {customerType === 'registered' && (
                         <span className="flex h-6 w-6 items-center justify-center rounded-full bg-court/10 text-xs font-bold text-court">
-                          ✓
+                          âœ“
                         </span>
                       )}
                     </div>
@@ -1191,8 +1197,8 @@ export default function CreateBooking() {
 
                         <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-muted">
                           {searchingCustomers
-                            ? '…'
-                            : '⌕'}
+                            ? 'â€¦'
+                            : 'âŒ•'}
                         </span>
                       </div>
 
@@ -1245,7 +1251,7 @@ export default function CreateBooking() {
                                   </div>
 
                                   <span className="shrink-0 text-xs font-bold text-court">
-                                    Select →
+                                    Select â†’
                                   </span>
                                 </button>
                               ),
@@ -1329,13 +1335,13 @@ export default function CreateBooking() {
 
                       {paymentType === 'full' && (
                         <span className="flex h-6 w-6 items-center justify-center rounded-full bg-court/10 text-xs font-bold text-court">
-                          ✓
+                          âœ“
                         </span>
                       )}
                     </div>
 
                     <p className="mt-5 text-xl font-bold text-ink">
-                      ₱{totalAmount.toLocaleString()}
+                      â‚±{totalAmount.toLocaleString()}
                     </p>
                   </button>
 
@@ -1366,13 +1372,13 @@ export default function CreateBooking() {
 
                       {paymentType === 'deposit' && (
                         <span className="flex h-6 w-6 items-center justify-center rounded-full bg-court/10 text-xs font-bold text-court">
-                          ✓
+                          âœ“
                         </span>
                       )}
                     </div>
 
                     <p className="mt-5 text-xl font-bold text-ink">
-                      ₱{depositAmount.toLocaleString()}
+                      â‚±{depositAmount.toLocaleString()}
                     </p>
                   </button>
                 </div>
@@ -1411,7 +1417,7 @@ export default function CreateBooking() {
                     </div>
 
                     <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/10 text-lg">
-                      🏓
+                      ðŸ“
                     </div>
                   </div>
                 </div>
@@ -1455,7 +1461,7 @@ export default function CreateBooking() {
                         </p>
 
                         <p className="mt-1 truncate text-sm font-bold text-ink">
-                          {selectedCourt?.name ?? '—'}
+                          {selectedCourt?.name ?? 'â€”'}
                         </p>
                       </div>
 
@@ -1527,7 +1533,7 @@ export default function CreateBooking() {
                         </span>
 
                         <span className="font-semibold text-ink">
-                          ₱{hourlyRate.toLocaleString()}/hr
+                          â‚±{hourlyRate.toLocaleString()}/hr
                         </span>
                       </div>
 
@@ -1564,7 +1570,7 @@ export default function CreateBooking() {
                           </p>
 
                           <p className="mt-1 text-2xl font-bold text-ink">
-                            ₱{totalAmount.toLocaleString()}
+                            â‚±{totalAmount.toLocaleString()}
                           </p>
                         </div>
 
@@ -1574,7 +1580,7 @@ export default function CreateBooking() {
                           </p>
 
                           <p className="mt-1 text-sm font-bold text-court">
-                            ₱{amountDue.toLocaleString()}
+                            â‚±{amountDue.toLocaleString()}
                           </p>
                         </div>
                       </div>
@@ -1615,7 +1621,7 @@ export default function CreateBooking() {
 
             <div className="bg-court px-6 py-7 text-center text-white">
               <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-white/15 text-3xl">
-                ✓
+                âœ“
               </div>
 
               <h2 className="mt-4 font-display text-xl font-bold">

@@ -151,6 +151,37 @@ export async function createReservation(
   return data as Reservation
 }
 
+export async function createAdminBookingsAtomic(
+  reservations: Omit<
+    Reservation,
+    'id' | 'created_at'
+  >[]
+): Promise<Reservation[]> {
+  if (!reservations.length) {
+    throw new Error(
+      'At least one reservation is required.'
+    )
+  }
+
+  const { data, error } =
+    await supabase.rpc(
+      'admin_create_bookings_atomic',
+      {
+        p_reservations:
+          reservations,
+      }
+    )
+
+  if (error) {
+    console.error(
+      'Error creating admin bookings atomically:',
+      error
+    )
+    throw error
+  }
+
+  return (data ?? []) as Reservation[]
+}
 export async function getReservationsForCourtAndDate(
   courtId: string,
   date: string
