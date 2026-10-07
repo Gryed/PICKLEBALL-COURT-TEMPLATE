@@ -835,6 +835,7 @@ interface PublicBookingLookupRow {
   payment_type: string
   amount_due: number | null
   payment_status: string
+  payment_deadline_at: string | null
   guest_name: string | null
   guest_phone: string | null
   booking_reference: string | null
@@ -861,6 +862,8 @@ function mapPublicBookingLookup(
       row.amount_due,
     payment_status:
       row.payment_status as Reservation['payment_status'],
+    payment_deadline_at:
+      row.payment_deadline_at,
     payment_proof_url:
       null,
     guest_name:

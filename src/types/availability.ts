@@ -18,9 +18,10 @@ export interface Reservation {
   status: 'confirmed' | 'cancelled'
   payment_type: 'full' | 'deposit'
   amount_due: number | null
-  payment_status: 'pending' | 'verified' | 'rejected'
+  payment_status: 'pending' | 'verified' | 'rejected' | 'expired'
   payment_proof_url: string | null
   booking_reference: string | null
+  payment_deadline_at?: string | null
   created_at: string
 }
 

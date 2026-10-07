@@ -278,6 +278,49 @@ export default function Booking() {
   const [bookingReference, setBookingReference] =
     useState('')
 
+  const [paymentDeadlineAt, setPaymentDeadlineAt] =
+    useState<string | null>(null)
+
+  const [paymentSecondsRemaining, setPaymentSecondsRemaining] =
+    useState<number | null>(null)
+
+  useEffect(() => {
+    if (
+      modalStep !== 'success' ||
+      !paymentDeadlineAt
+    ) {
+      setPaymentSecondsRemaining(null)
+      return
+    }
+
+    const updateCountdown = () => {
+      const deadline =
+        new Date(paymentDeadlineAt).getTime()
+
+      const remaining = Math.max(
+        0,
+        Math.ceil(
+          (deadline - Date.now()) / 1000
+        )
+      )
+
+      setPaymentSecondsRemaining(remaining)
+    }
+
+    updateCountdown()
+
+    const interval = window.setInterval(
+      updateCountdown,
+      1000
+    )
+
+    return () =>
+      window.clearInterval(interval)
+  }, [
+    modalStep,
+    paymentDeadlineAt,
+  ])
+
   const bookingHorizon =
     settings?.booking_horizon_days ?? 60
 
@@ -823,7 +866,16 @@ export default function Booking() {
   })
 )
 
-await createBookingAtomic(reservations)
+const createdReservations =
+        await createBookingAtomic(reservations)
+
+      const paymentDeadline =
+        createdReservations[0]?.payment_deadline_at ??
+        null
+
+      setPaymentDeadlineAt(
+        paymentDeadline
+      )
 
       setBookingReference(reference)
       setCopied(false)
@@ -851,6 +903,8 @@ await createBookingAtomic(reservations)
     setModalStep('none')
     setProofFile(null)
     setBookingReference('')
+    setPaymentDeadlineAt(null)
+    setPaymentSecondsRemaining(null)
     setCopied(false)
     setSelectedSlots([])
     setBookingDuration(null)
@@ -2820,6 +2874,57 @@ const bookedCount =
               Your payment proof has been sent for verification. You'll be notified once confirmed.
             </p>
 
+            {paymentDeadlineAt && (
+              <div
+                className={`mt-4 rounded-xl border px-4 py-3 ${
+                  paymentSecondsRemaining !== null &&
+                  paymentSecondsRemaining <= 60
+                    ? 'border-red-500/40 bg-red-500/10'
+                    : 'border-court/30 bg-court/10'
+                }`}
+              >
+                {paymentSecondsRemaining !== null &&
+                paymentSecondsRemaining > 0 ? (
+                  <>
+                    <p className="text-xs font-medium text-muted">
+                      Payment hold expires in
+                    </p>
+
+                    <p
+                      className={`mt-1 font-display text-2xl font-bold tabular-nums ${
+                        paymentSecondsRemaining <= 60
+                          ? 'text-red-400'
+                          : 'text-court'
+                      }`}
+                    >
+                      {String(
+                        Math.floor(
+                          paymentSecondsRemaining / 60
+                        )
+                      ).padStart(2, '0')}
+                      :
+                      {String(
+                        paymentSecondsRemaining % 60
+                      ).padStart(2, '0')}
+                    </p>
+
+                    <p className="mt-1 text-[11px] text-muted">
+                      Please wait for payment verification before the deadline.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm font-semibold text-red-400">
+                      Payment deadline reached
+                    </p>
+
+                    <p className="mt-1 text-xs text-muted">
+                      Checking the latest booking status. The booking system will release the hold automatically if the payment remains pending.
+                    </p>
+                  </>
+                )}
+              </div>
+            )}
             <div className="my-4 rounded-xl border border-line bg-paper px-4 py-3">
               <p className="mb-2 text-xs text-muted">
                 Booking reference
