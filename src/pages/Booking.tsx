@@ -11,6 +11,7 @@ import {
 import {
   getAvailableSlots,
   generateBookingReference,
+  getReservationsByReference,
 } from '../services/availabilityService'
 
 import { createBookingAtomic } from '../services/atomicBookingService'
@@ -284,12 +285,16 @@ export default function Booking() {
   const [paymentSecondsRemaining, setPaymentSecondsRemaining] =
     useState<number | null>(null)
 
+  const [paymentExpired, setPaymentExpired] =
+    useState(false)
+
   useEffect(() => {
     if (
       modalStep !== 'success' ||
       !paymentDeadlineAt
     ) {
       setPaymentSecondsRemaining(null)
+      setPaymentExpired(false)
       return
     }
 
@@ -319,6 +324,68 @@ export default function Booking() {
   }, [
     modalStep,
     paymentDeadlineAt,
+  ])
+
+  useEffect(() => {
+    if (
+      modalStep !== 'success' ||
+      !paymentDeadlineAt ||
+      !bookingReference ||
+      !organizationSlug ||
+      paymentSecondsRemaining !== 0 ||
+      paymentExpired
+    ) {
+      return
+    }
+
+    let stopped = false
+
+    const checkBookingStatus = async () => {
+      try {
+        const reservations =
+          await getReservationsByReference(
+            organizationSlug,
+            bookingReference
+          )
+
+        if (stopped) return
+
+        const booking = reservations[0]
+
+        if (
+          booking?.status === 'cancelled' ||
+          booking?.payment_status === 'expired'
+        ) {
+          setPaymentExpired(true)
+        }
+      } catch (error) {
+        console.error(
+          'Error checking expired booking status:',
+          error
+        )
+      }
+    }
+
+    void checkBookingStatus()
+
+    const interval = window.setInterval(
+      () => {
+        void checkBookingStatus()
+      },
+      3000
+    )
+
+    return () => {
+      stopped = true
+      window.clearInterval(interval)
+    }
+  }, [
+    modalStep,
+    paymentDeadlineAt,
+    bookingReference,
+    organizationSlug,
+    paymentSecondsRemaining,
+    paymentExpired,
   ])
 
   const bookingHorizon =
@@ -877,6 +944,8 @@ const createdReservations =
         paymentDeadline
       )
 
+      setPaymentExpired(false)
+
       setBookingReference(reference)
       setCopied(false)
       setModalStep('success')
@@ -905,6 +974,7 @@ const createdReservations =
     setBookingReference('')
     setPaymentDeadlineAt(null)
     setPaymentSecondsRemaining(null)
+    setPaymentExpired(false)
     setCopied(false)
     setSelectedSlots([])
     setBookingDuration(null)
@@ -2883,8 +2953,27 @@ const bookedCount =
                     : 'border-court/30 bg-court/10'
                 }`}
               >
-                {paymentSecondsRemaining !== null &&
-                paymentSecondsRemaining > 0 ? (
+                {paymentExpired ? (
+
+                  <>
+
+                    <p className="text-sm font-semibold text-red-400">
+
+                      Payment expired — booking released
+
+                    </p>
+
+                    <p className="mt-1 text-xs text-muted">
+
+                      The payment deadline expired without a submitted payment. The booking has been automatically released.
+
+                    </p>
+
+                  </>
+
+                ) : paymentSecondsRemaining !== null &&
+
+                  paymentSecondsRemaining > 0 ? (
                   <>
                     <p className="text-xs font-medium text-muted">
                       Payment hold expires in
