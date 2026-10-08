@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { Settings } from '../types/court'
 import type {
   OpenPlayParticipant,
@@ -68,9 +68,46 @@ export default function OpenPlayPaymentForm({
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const [countdownNow, setCountdownNow] = useState(() => Date.now())
+
+  /* =========================================================
+     OPEN PLAY PAYMENT HOLD COUNTDOWN
+  ========================================================= */
+
+  useEffect(() => {
+    const interval = window.setInterval(
+      () => setCountdownNow(Date.now()),
+      1000
+    )
+
+    return () => window.clearInterval(interval)
+  }, [])
+
+  function getHoldSecondsRemaining() {
+    if (
+      participant.status !== 'held' ||
+      !participant.hold_expires_at
+    ) {
+      return null
+    }
+
+    return Math.max(
+      0,
+      Math.ceil(
+        (new Date(participant.hold_expires_at).getTime() -
+          countdownNow) /
+          1000
+      )
+    )
+  }
+
+  const holdSecondsRemaining = getHoldSecondsRemaining()
+  const holdExpired = holdSecondsRemaining === 0
+
   const canSubmit = useMemo(() => {
     return (
       !submitting &&
+      !holdExpired &&
       Boolean(transactionReference.trim()) &&
       Boolean(paymentDate) &&
       Boolean(paymentTime) &&
@@ -81,6 +118,7 @@ export default function OpenPlayPaymentForm({
     )
   }, [
     submitting,
+    holdExpired,
     transactionReference,
     paymentDate,
     paymentTime,
@@ -219,7 +257,7 @@ export default function OpenPlayPaymentForm({
             Amount submitted
           </div>
           <div className="mt-1 text-xl font-bold text-white">
-            ₱{Number(participant.amount_due).toFixed(2)}
+            ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â±{Number(participant.amount_due).toFixed(2)}
           </div>
         </div>
       </div>
@@ -239,7 +277,7 @@ export default function OpenPlayPaymentForm({
         </p>
 
         <div className="mt-4 text-xl font-bold text-white">
-          ₱{Number(participant.amount_due).toFixed(2)}
+          ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â±{Number(participant.amount_due).toFixed(2)}
         </div>
       </div>
     )
@@ -261,6 +299,30 @@ export default function OpenPlayPaymentForm({
           Submit your payment details and screenshot before your
           reservation hold expires.
         </p>
+
+        {holdSecondsRemaining !== null && (
+          <p
+            className={`mt-2 text-sm font-semibold ${
+              holdExpired
+                ? 'text-red-400'
+                : holdSecondsRemaining <= 60
+                  ? 'text-red-400'
+                  : 'text-court'
+            }`}
+          >
+            {holdExpired
+              ? 'Payment hold expired'
+              : `Payment hold expires in ${Math.floor(
+                  holdSecondsRemaining / 60
+                )
+                  .toString()
+                  .padStart(2, '0')}:${(
+                  holdSecondsRemaining % 60
+                )
+                  .toString()
+                  .padStart(2, '0')}`}
+          </p>
+        )}
       </div>
 
       {paymentStatus === 'rejected' && (
@@ -283,7 +345,7 @@ export default function OpenPlayPaymentForm({
         </div>
 
         <div className="mt-1 text-2xl font-bold text-white">
-          ₱{Number(participant.amount_due).toFixed(2)}
+          ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â±{Number(participant.amount_due).toFixed(2)}
         </div>
       </div>
 
