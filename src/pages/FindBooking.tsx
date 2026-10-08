@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import type { Reservation } from '../types/availability'
 import { useOrganization } from '../context/OrganizationContext'
 import {
@@ -52,7 +52,37 @@ export default function FindBooking() {
   const [cancellingId, setCancellingId] =
     useState<string | null>(null)
 
+  const [countdownNow, setCountdownNow] =
+    useState(() => Date.now())
+
   /* =========================================================
+     PAYMENT DEADLINE COUNTDOWN
+  ========================================================= */
+
+  useEffect(() => {
+    const interval = window.setInterval(
+      () => setCountdownNow(Date.now()),
+      1000
+    )
+
+    return () =>
+      window.clearInterval(interval)
+  }, [])
+
+  function getPaymentSecondsRemaining(
+    deadline: string | null | undefined
+  ) {
+    if (!deadline) return null
+
+    return Math.max(
+      0,
+      Math.ceil(
+        (new Date(deadline).getTime() -
+          countdownNow) /
+          1000
+      )
+    )
+  }/* =========================================================
      HELPERS
   ========================================================= */
 
@@ -101,6 +131,16 @@ export default function FindBooking() {
         year: 'numeric',
       }
     )
+  }
+  function formatPaymentCountdown(
+    seconds: number
+  ) {
+    const minutes = Math.floor(seconds / 60)
+    const remainingSeconds = seconds % 60
+
+    return `${String(minutes).padStart(2, '0')}:${String(
+      remainingSeconds
+    ).padStart(2, '0')}`
   }
 
   function statusBadge(
@@ -656,7 +696,7 @@ export default function FindBooking() {
                           {formatTime(
                             booking.startTime
                           )}{' '}
-                          –{' '}
+                          â€“{' '}
                           {formatTime(
                             booking.endTime
                           )}
@@ -694,6 +734,25 @@ export default function FindBooking() {
                             booking.paymentType
                           }
                         </p>
+
+                        {booking.paymentStatus === 'pending' &&
+                          booking.status === 'confirmed' &&
+                          getPaymentSecondsRemaining(
+                            booking.rows[0]?.payment_deadline_at
+                          ) !== null && (
+                            <p
+                              className={`mt-1 text-xs font-semibold ${
+                                getPaymentSecondsRemaining(booking.rows[0]?.payment_deadline_at)! <= 60
+                                  ? 'text-red-400'
+                                  : 'text-court'
+                              }`}
+                            >
+                              Payment deadline:{' '}
+                              {formatPaymentCountdown(
+                                getPaymentSecondsRemaining(booking.rows[0]?.payment_deadline_at) ?? 0
+                              )}
+                            </p>
+                          )}
                       </div>
 
                       {/* AMOUNT */}
@@ -703,7 +762,7 @@ export default function FindBooking() {
                         </p>
 
                         <p className="mt-0.5 text-base font-semibold text-ink">
-                          ₱
+                          â‚±
                           {booking.totalAmount.toLocaleString(
                             'en-PH',
                             {
